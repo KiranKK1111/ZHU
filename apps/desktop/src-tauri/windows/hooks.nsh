@@ -18,6 +18,16 @@
   !insertmacro ZHU_STOP_ENGINE
 !macroend
 
+; 3. The six large NVIDIA libraries travel compressed (packaging/pack_cuda.py): compressing them
+;    inside the installer took most of every build. The engine unpacks them in place, here, once
+;    the files are on disk. If this step fails or is skipped, the engine does it at its next
+;    start, and until then it works on the processor instead of the graphics card.
+!macro NSIS_HOOK_POSTINSTALL
+  DetailPrint "Unpacking the GPU libraries..."
+  nsExec::Exec '"$INSTDIR\zhu-engine\zhu-engine.exe" --unpack-cuda'
+  Pop $0
+!macroend
+
 !macro NSIS_HOOK_PREUNINSTALL
   !insertmacro ZHU_STOP_ENGINE
 !macroend

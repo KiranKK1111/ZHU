@@ -90,16 +90,11 @@ jobs:
       - name: Check out
         uses: actions/checkout@v7
 
-      - name: Write the version into the app
-        shell: pwsh
-        run: ./packaging/version.ps1 -Set $env:VERSION
-
       - name: Set up Python
+        id: python
         uses: actions/setup-python@v7
         with:
           python-version: "3.13"
-          cache: pip
-          cache-dependency-path: engine/pyproject.toml
 
       - name: Set up Node
         uses: actions/setup-node@v7
@@ -108,22 +103,59 @@ jobs:
           cache: npm
           cache-dependency-path: apps/desktop/package-lock.json
 
+      # The three caches below are looked up before the version is written into the files: their
+      # keys are made from those files, and a new version number must not make them miss.
+
       - name: Cache the Rust build
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: apps/desktop/src-tauri
 
+      # The engine's Python packages, installed (about 2 GB of them are the CUDA runtime).
+      - name: Cache the engine's virtualenv
+        id: venv
+        uses: actions/cache@v5
+        with:
+          path: engine/.venv
+          key: venv-${{ runner.os }}-py${{ steps.python.outputs.python-version }}-${{ hashFiles('engine/pyproject.toml') }}
+
+      # The six NVIDIA libraries, already compressed (packaging/pack_cuda.py). They change only
+      # when NVIDIA's packages do, so the newest saved set is nearly always the right one.
+      - name: Restore the compressed NVIDIA libraries
+        id: cuda
+        uses: actions/cache/restore@v5
+        with:
+          path: build/cuda-pack
+          key: cuda-pack-none
+          restore-keys: cuda-pack-
+
+      - name: Write the version into the app
+        shell: pwsh
+        run: ./packaging/version.ps1 -Set $env:VERSION
+
       # build.ps1 creates the virtualenv with the "py" launcher when there is none. Making it here
       # uses the Python set up above, whatever the launcher on the runner would have picked.
       - name: Create the engine's virtualenv
+        if: steps.venv.outputs.cache-hit != 'true'
         shell: pwsh
         run: python -m venv engine\.venv
 
       - name: Build the installer
+        id: build
         shell: pwsh
         run: ./packaging/build.ps1
 
+      # Only when this build had to compress a library that the restored set did not have.
+      - name: Keep the compressed NVIDIA libraries for the next build
+        if: steps.build.outputs.cuda-pack-key != '' && steps.cuda.outputs.cache-matched-key != format('cuda-pack-{0}', steps.build.outputs.cuda-pack-key)
+        uses: actions/cache/save@v5
+        with:
+          path: build/cuda-pack
+          key: cuda-pack-${{ steps.build.outputs.cuda-pack-key }}
+
+      # Only when there is no release to hold it: uploading more than a gigabyte twice takes time for nothing.
       - name: Keep the installer with this run
+        if: needs.version.outputs.release != 'true'
         uses: actions/upload-artifact@v7
         with:
           name: ZHU-Setup-${{ needs.version.outputs.version }}

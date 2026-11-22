@@ -73,7 +73,7 @@ Audio is never uploaded and never saved. A question leaves your computer only wh
 
 **Steps**
 
-1. Download `ZHU-Setup.exe` from the [Releases](../../releases) page (about 850 MB). Every version is built there automatically. No release yet? [Build it](#build-the-installer) with one command.
+1. Download `ZHU-Setup.exe` from the [Releases](../../releases) page (about 880 MB). Every version is built there automatically. No release yet? [Build it](#build-the-installer) with one command.
 2. Run it. It installs for your user account and needs no administrator rights. Nothing else has to be installed: no Python, no Node, no CUDA toolkit.
 3. Start ZHU from the Start menu. The first time, it asks you to download a speech model (once; after that it works offline). ZHU looks at your hardware and recommends one.
 
@@ -170,7 +170,7 @@ From the repository root:
 powershell -ExecutionPolicy Bypass -File packaging\build.ps1
 ```
 
-This runs the tests, freezes the engine, builds the app and writes `dist\ZHU-Setup.exe` with its SHA-256 checksum next to it. Add `-SkipTests` for a faster run, or `-Sign` to code-sign.
+This runs the tests, freezes the engine, builds the app and writes `dist\ZHU-Setup.exe` with its SHA-256 checksum next to it. Useful switches: `-SkipInstall` reuses the packages already installed (quicker, and it works while the dev session is running), `-SkipTests` skips the test suites, and `-Sign` code-signs. With `-SkipInstall` a build takes under three minutes on the development laptop.
 
 > [!TIP]
 > Close a running `npm run tauri dev` session first. The script reinstalls dependencies, and Windows refuses to replace files that the running app has open.

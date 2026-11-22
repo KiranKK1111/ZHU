@@ -42,17 +42,30 @@ Run the engine alone with `engine\.venv\Scripts\python -m zhu_engine` in an inte
 ## 3. Building the installer
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File packaging\build.ps1          # add -Sign to code-sign
+powershell -ExecutionPolicy Bypass -File packaging\build.ps1
 ```
+
+| Switch | Effect |
+|---|---|
+| `-SkipInstall` | Uses the Python and npm packages that are already installed. For a second build on the same computer; it also works while `npm run tauri dev` is running, which the installs do not |
+| `-SkipTests` | Skips the engine and front-end test suites |
+| `-Sign` | Code-signs the installer (needs `ZHU_SIGN_CERT_THUMBPRINT`) |
+
+The script prints the time at each step and, at the end, how long each one took. Measured on the development laptop with `-SkipInstall`: 2 minutes 38 seconds for everything, and an installer of 882 MB.
 
 The script:
 1. sets up the venv;
 2. runs the engine tests;
 3. freezes the engine with PyInstaller (`packaging/zhu-engine.spec`, one folder → `build/zhu-engine`);
 4. **smoke-tests the frozen engine** (readiness, `/health`, `/system/gpu`);
-5. runs the front-end tests;
-6. runs `tauri build` with `tauri.bundle.conf.json`, which adds `build/zhu-engine` as a resource;
-7. writes `dist/ZHU-Setup.exe` and `dist/ZHU-Setup.exe.sha256`.
+5. **packs the NVIDIA libraries** (`packaging/pack_cuda.py`, see below) into `build/stage/zhu-engine`;
+6. runs the front-end tests;
+7. runs `tauri build` with `tauri.bundle.conf.json`, which adds `build/stage/zhu-engine` as a resource;
+8. writes `dist/ZHU-Setup.exe` and `dist/ZHU-Setup.exe.sha256`.
+
+**Why the NVIDIA libraries are packed separately.** The CUDA runtime (cuBLAS, cuDNN: eight libraries) is 1.5 GB of the engine's 1.8 GB, and it is the same in every build. Compressing it inside the installer took about eleven minutes each time, on one processor core. Now each library is compressed once, all of them at the same time (about 3 minutes on the development laptop), and kept in `build/cuda-pack` under the SHA-256 of its content; later builds find it there. The installer carries the libraries as `<name>.dll.xz` and only stores them.
+
+On the user's computer the installer unpacks them right after copying the files (`zhu-engine.exe --unpack-cuda`, from `apps/desktop/src-tauri/windows/hooks.nsh`; about 11 seconds on the development laptop). If that step does not run, the engine unpacks them at its next start, and until then it transcribes on the processor. Each build runs that unpack command of the freshly built engine on one library and compares the result with the original.
 
 ### Releasing: the installer is built on GitHub
 
@@ -62,7 +75,7 @@ The script:
 * **Actions → Build installer → Run workflow** builds the next version from any branch without releasing it; the installer is kept with that run as an artifact for 14 days.
 * **A tag pushed by hand** releases exactly that version, whatever the commits say: `git tag v2.0.0`, then `git push origin v2.0.0`.
 
-**How the version is decided** (`packagingersion.ps1`), from the first line of each commit message since the last release. The largest change decides:
+**How the version is decided** (`packaging\version.ps1`), from the first line of each commit message since the last release. The largest change decides:
 
 | Part | Example | Raised by |
 |---|---|---|
@@ -70,11 +83,11 @@ The script:
 | Sub version | 1.4.2 → 1.5.0 | A new feature: `feat: …`, or a message starting with Add, Implement, Introduce, New, Support, Enable, Allow or Create |
 | Patch | 1.4.2 → 1.4.3 | Everything else: fixes, clean-ups, wording, build changes |
 
-So the wording of a commit matters: "Add export to PDF" gives a new sub version, "Fix export to PDF" a patch. To see what the next version would be before pushing, run `packagingersion.ps1`; it only reports.
+So the wording of a commit matters: "Add export to PDF" gives a new sub version, "Fix export to PDF" a patch. To see what the next version would be before pushing, run `packaging\version.ps1`; it only reports.
 
-The version written in the repository's files (`0.1.0`) is only the starting point: with no release yet, the first one takes it. After that the tags hold the versions, and the workflow writes the number into the app at build time (`tauri.conf.json`, `Cargo.toml`, `Cargo.lock`, `package.json`, `package-lock.json`, `pyproject.toml`, the engine's `__init__.py` and `engine_version.txt`) without committing anything. A build on your own computer therefore shows the version in the files, unless you run `packagingersion.ps1 -Apply` first.
+The version written in the repository's files (`0.1.0`) is only the starting point: with no release yet, the first one takes it. After that the tags hold the versions, and the workflow writes the number into the app at build time (`tauri.conf.json`, `Cargo.toml`, `Cargo.lock`, `package.json`, `package-lock.json`, `pyproject.toml`, the engine's `__init__.py` and `engine_version.txt`) without committing anything. A build on your own computer therefore shows the version in the files, unless you run `packaging\version.ps1 -Apply` first.
 
-A first build takes about an hour (Rust from scratch, the CUDA wheels, compressing 850 MB); later ones reuse cached dependencies. The runner has no NVIDIA card, so the smoke test prints "CUDA available: False"; the CUDA runtime is bundled regardless. Dependencies are not pinned to exact versions, so a build on GitHub can pick up newer packages than the ones on your computer.
+The first build on GitHub with the old layout took 27 minutes. How long one takes now has not been measured yet; the build script prints the time of each step and a summary at the end, so the log of a run shows where it went. Three things are cached between builds: the Rust build, the engine's installed Python packages, and the compressed NVIDIA libraries. The first build after this change fills those caches, so the one after it is the first representative one. The runner has no NVIDIA card, so the smoke test prints "CUDA available: False"; the CUDA runtime is bundled regardless. Dependencies are not pinned to exact versions, so a build on GitHub can pick up newer packages than the ones on your computer.
 
 ## 4. Integrity
 

@@ -1,7 +1,7 @@
 # Builds dist\ZHU-Setup.exe with packaging\build.ps1 (tests, frozen engine, Tauri app, NSIS installer)
 # and releases it under a version that packaging\version.ps1 works out from the commits.
 #
-#   * Every push to main (other than changes to documentation or to this workflow only) becomes a release. The version
+#   * Every push to main (other than documentation-only changes) becomes a release. The version
 #     follows from the commit messages since the last release: a breaking change raises the main
 #     version, a new feature the sub version, anything else the patch (rules: packaging\version.ps1).
 #     The workflow writes that version into the app, builds, and publishes a GitHub Release with
@@ -29,7 +29,6 @@ on:
       - "docs/**"
       - "LICENSE"
       - ".gitignore"
-      - ".github/**" # a change to this workflow alone does not change the app
   workflow_dispatch:
 
 permissions:

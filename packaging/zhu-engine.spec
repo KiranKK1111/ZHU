@@ -51,7 +51,10 @@ a = Analysis(
     datas=datas,
     hiddenimports=hiddenimports,
     excludes=["tkinter", "torch", "tensorflow", "matplotlib", "IPython", "pytest", "PyInstaller"],
-    noarchive=False,
+    # The Python modules as files in _internal, not packed inside zhu-engine.exe: the desktop app
+    # loads this same runtime into its own process (apps/desktop/src-tauri/src/embedded.rs), and
+    # only zhu-engine.exe itself could read modules that are inside it.
+    noarchive=True,
 )
 pyz = PYZ(a.pure)
 exe = EXE(

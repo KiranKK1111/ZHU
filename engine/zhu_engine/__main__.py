@@ -9,6 +9,9 @@ Environment:
     ZHU_DATA_DIR      override the data directory (default %LOCALAPPDATA%\\app.zhu.desktop\\data)
 
 The engine prints exactly one line ``ZHU_ENGINE_READY port=<n>`` on stdout once it accepts connections.
+
+The engine can also run inside the desktop app's own process (see embedded.py); both ways go
+through ``serve`` below.
 """
 
 from __future__ import annotations
@@ -20,24 +23,26 @@ import os
 import secrets
 import socket
 import sys
+from typing import Callable, Optional
 
 
-def main() -> None:
-    # The installer calls this right after copying the files: unpack the NVIDIA libraries, which
-    # travel compressed (see system/cuda_pack.py), and exit. Nothing else is started.
-    if "--unpack-cuda" in sys.argv[1:]:
-        from .system.cuda_pack import unpack
+class EngineStartError(Exception):
+    """The engine cannot start as it was asked to (for example: no token)."""
 
-        _, errors = unpack()
-        sys.exit(1 if errors else 0)
 
-    parser = argparse.ArgumentParser(prog="zhu-engine")
-    parser.add_argument("--port", type=int, default=0)
-    parser.add_argument("--data-dir")
-    parser.add_argument("--log-level", default=os.environ.get("ZHU_LOG_LEVEL", "INFO"))
-    args = parser.parse_args()
-    if args.data_dir:
-        os.environ["ZHU_DATA_DIR"] = args.data_dir
+def serve(token: str, port: int = 0, data_dir: Optional[str] = None, log_level: str = "INFO", parent_pid: int = 0,
+          on_ready: Optional[Callable[[int], None]] = None, on_server: Optional[Callable[[Optional[Callable[[], None]]], None]] = None) -> None:
+    """Run the engine until it is asked to stop. Blocks; returns when the server has shut down.
+
+    ``on_ready(port)`` is called once the engine accepts connections. ``on_server(stop)`` hands
+    over a function that asks this run to stop (safe to call from any thread), and is called
+    again with ``None`` when the run has ended. Everything the run opened is closed before this
+    returns, so the engine can be started again in the same process.
+    """
+    if not token or len(token) < 32:
+        raise EngineStartError("the engine needs a token of at least 32 characters")
+    if data_dir:
+        os.environ["ZHU_DATA_DIR"] = data_dir
     # No telemetry: FastAPI's OpenTelemetry layer attaches no exporters by default; make that explicit.
     os.environ["FASTAPI_OTEL_AUTO_CONFIGURE"] = "false"
     os.environ["OTEL_SDK_DISABLED"] = "true"
@@ -47,20 +52,8 @@ def main() -> None:
     from .system.paths import default_paths
 
     paths = default_paths().ensure()
-    configure_logging(paths.logs, args.log_level)
+    configure_logging(paths.logs, log_level)
     log = logging.getLogger("zhu")
-
-    token = os.environ.get("ZHU_ENGINE_TOKEN")
-    if not token:
-        if sys.stdin is not None and sys.stdin.isatty():
-            token = secrets.token_urlsafe(32)
-            _announce(f"ZHU_DEV_TOKEN {token}")  # interactive developer run only
-        else:
-            log.error("ZHU_ENGINE_TOKEN is required")
-            sys.exit(2)
-    if len(token) < 32:
-        log.error("ZHU_ENGINE_TOKEN is too short")
-        sys.exit(2)
 
     import uvicorn
 
@@ -83,40 +76,83 @@ def main() -> None:
             log.warning("an NVIDIA library could not be unpacked, the GPU may be unavailable: %s", problem)
     register_cuda_dlls()
     db = Database(paths.database)
-    hub = EventHub()
-    service = SessionService(paths, db, hub)
-
-    # Bind first so the port is known before announcing readiness. Loopback only.
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE if hasattr(socket, "SO_EXCLUSIVEADDRUSE") else socket.SO_REUSEADDR, 1)
-    sock.bind(("127.0.0.1", args.port))
-    port = sock.getsockname()[1]
-    port_ref = {"port": port}
-    app = create_app(service, token, port_ref)
-    config = uvicorn.Config(app, log_config=None, ws="websockets", ws_ping_interval=20, ws_ping_timeout=20,
-                            timeout_graceful_shutdown=5, access_log=False)
-    server = uvicorn.Server(config)
-
-    def request_exit() -> None:
-        server.should_exit = True
-
-    parent = int(os.environ.get("ZHU_PARENT_PID", "0") or 0)
-    watch_parent(parent, request_exit)
-
-    async def run() -> None:
-        serve = asyncio.create_task(server.serve(sockets=[sock]))
-        while not server.started and not serve.done():
-            await asyncio.sleep(0.05)
-        if server.started:
-            _announce(f"ZHU_ENGINE_READY port={port}")
-            log.info("engine ready on 127.0.0.1:%d", port)
-        await serve
-
     try:
-        asyncio.run(run())
-    except KeyboardInterrupt:
-        pass
-    log.info("engine stopped")
+        hub = EventHub()
+        service = SessionService(paths, db, hub)
+
+        # Bind first so the port is known before announcing readiness. Loopback only.
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE if hasattr(socket, "SO_EXCLUSIVEADDRUSE") else socket.SO_REUSEADDR, 1)
+        sock.bind(("127.0.0.1", port))
+        port = sock.getsockname()[1]
+        app = create_app(service, token, {"port": port})
+        config = uvicorn.Config(app, log_config=None, ws="websockets", ws_ping_interval=20, ws_ping_timeout=20,
+                                timeout_graceful_shutdown=5, access_log=False)
+        server = uvicorn.Server(config)
+
+        def request_exit() -> None:
+            server.should_exit = True
+
+        if on_server:
+            on_server(request_exit)
+        watch_parent(parent_pid, request_exit)
+
+        async def run() -> None:
+            task = asyncio.create_task(server.serve(sockets=[sock]))
+            while not server.started and not task.done():
+                await asyncio.sleep(0.05)
+            if server.started:
+                log.info("engine ready on 127.0.0.1:%d", port)
+                if on_ready:
+                    on_ready(port)
+            await task
+
+        try:
+            asyncio.run(run())
+        except KeyboardInterrupt:
+            pass
+        finally:
+            if on_server:
+                on_server(None)
+            try:
+                sock.close()
+            except OSError:
+                pass
+        log.info("engine stopped")
+    finally:
+        db.close()
+
+
+def main() -> None:
+    # The installer calls this right after copying the files: unpack the NVIDIA libraries, which
+    # travel compressed (see system/cuda_pack.py), and exit. Nothing else is started.
+    if "--unpack-cuda" in sys.argv[1:]:
+        from .system.cuda_pack import unpack
+
+        _, errors = unpack()
+        sys.exit(1 if errors else 0)
+
+    parser = argparse.ArgumentParser(prog="zhu-engine")
+    parser.add_argument("--port", type=int, default=0)
+    parser.add_argument("--data-dir")
+    parser.add_argument("--log-level", default=os.environ.get("ZHU_LOG_LEVEL", "INFO"))
+    args = parser.parse_args()
+
+    token = os.environ.get("ZHU_ENGINE_TOKEN")
+    if not token:
+        if sys.stdin is not None and sys.stdin.isatty():
+            token = secrets.token_urlsafe(32)
+            _announce(f"ZHU_DEV_TOKEN {token}")  # interactive developer run only
+        else:
+            print("ZHU_ENGINE_TOKEN is required", file=sys.stderr) if sys.stderr is not None else None
+            sys.exit(2)
+    try:
+        serve(token, port=args.port, data_dir=args.data_dir, log_level=args.log_level,
+              parent_pid=int(os.environ.get("ZHU_PARENT_PID", "0") or 0),
+              on_ready=lambda port: _announce(f"ZHU_ENGINE_READY port={port}"))
+    except EngineStartError as exc:
+        print(str(exc), file=sys.stderr) if sys.stderr is not None else None
+        sys.exit(2)
 
 
 def _announce(line: str) -> None:

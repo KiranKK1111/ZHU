@@ -31,11 +31,11 @@ The engine is an HTTP/WebSocket server bound to **127.0.0.1 only**.
 
 | Threat | Mitigation |
 |---|---|
-| Another local process or user calls the API | A 256-bit random bearer token is generated per launch by the Rust shell and passed through an environment variable. It is never written to disk. Comparisons use `hmac.compare_digest` |
+| Another local process or user calls the API | A 256-bit random bearer token is generated for every start of the engine by the Rust shell and handed to the engine inside the process. It is never written to disk. Comparisons use `hmac.compare_digest` |
 | A web page in a browser calls the API (CSRF) | The token is required, and CORS allows only `http://tauri.localhost`, `tauri://localhost`, and the Vite dev origin |
 | DNS rebinding | Requests whose `Host` header is not `127.0.0.1:<port>`/`localhost:<port>` get 403. WebSocket upgrades check `Host` and `Origin` |
 | Token leakage through URLs or logs | The WebSocket token travels in the `Sec-WebSocket-Protocol` header (`bearer.<token>`), never in a query string. Uvicorn access logs are disabled, and log records pass through a redacting filter |
-| Orphaned engine keeps recording | The engine waits on the parent process handle (`WaitForSingleObject`) and exits with it. The shell also kills it on quit |
+| Orphaned engine keeps recording | The engine runs inside ZHU's own process, so it cannot outlive it. On quit it is stopped in order first (listening stops, the database closes) |
 | Malicious input | All request bodies are validated by Pydantic with length limits. Screenshot and model paths are resolved server-side from IDs, never from client-supplied paths |
 
 The webview's Tauri capability set is minimal: window controls, events, writing text to the clipboard, opening URLs, and autostart. There is **no file-system or shell access** from the UI. The content security policy limits connections to `ipc:` and `127.0.0.1`.
@@ -69,7 +69,7 @@ Limits of capture exclusion:
 * It covers ZHU's three windows (main with its chat tabs, sidecar, floating icon). Windows that belong to the system and are opened from ZHU, such as the tray menu and the "Save as" dialog of an export, are not covered.
 * The tray icon stays, and so does the taskbar's overflow area that holds it.
 
-ZHU uses no process hiding, and it does not try to evade security tools: ZHU and `zhu-engine.exe` stay in Task Manager. The sidecar uses `skipTaskbar`, the standard behavior for a floating palette, and it remains an ordinary top-level window of the visible ZHU process.
+ZHU uses no process hiding, and it does not try to evade security tools: ZHU stays in Task Manager (one process, `zhu.exe`, which runs the engine inside it). The sidecar uses `skipTaskbar`, the standard behavior for a floating palette, and it remains an ordinary top-level window of the visible ZHU process.
 
 ### Hide from the taskbar, Alt+Tab and screen capture
 
@@ -78,7 +78,7 @@ The eye button in the title bar, and the same entry in the tray menu, hide ZHU a
 * **ZHU is not in the taskbar, Alt+Tab or Task View.** Its three windows (main, sidecar, floating icon) carry the Windows "tool window" style, which is the documented way to leave a window out of those lists.
 * **ZHU is not in screen captures**, as described above. The windows stay on your own screen where they are.
 * **The main window stays on top of other windows.** With no taskbar button and no Alt+Tab entry, a window behind others could only be reached through the tray. If another program takes the "always on top" state away, ZHU sets it again at once. System surfaces that Windows always draws above applications (the Start menu, the lock screen, a permission prompt) still cover it, and so does another always-on-top window that you click afterwards.
-* **The process is not hidden.** ZHU and `zhu-engine.exe` stay in Task Manager, and the tray icon stays. The recording state is still shown in the title bar, the sidecar and the tray tooltip (§2).
+* **The process is not hidden.** ZHU (`zhu.exe`) stays in Task Manager, and the tray icon stays. The recording state is still shown in the title bar, the sidecar and the tray tooltip (§2).
 
 The consent rules in §2 apply whether or not ZHU is hidden: other participants cannot see from a shared screen that ZHU is in use, so telling them is up to you.
 

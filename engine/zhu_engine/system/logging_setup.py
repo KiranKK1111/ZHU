@@ -46,6 +46,13 @@ def configure_logging(log_dir: Path, level: str = "INFO") -> None:
         console.addFilter(RedactingFilter())
         handlers.append(console)
     root = logging.getLogger()
+    # The engine can be started more than once in one process (embedded.py): the handlers of the
+    # run before are closed, or two of them would hold the log file and it could not be rotated.
+    for old in root.handlers:
+        try:
+            old.close()
+        except Exception:  # noqa: BLE001 - a handler that cannot close must not stop the engine
+            pass
     root.handlers[:] = handlers
     root.setLevel(level)
     for noisy in ("httpx", "httpcore", "uvicorn.access", "faster_whisper"):

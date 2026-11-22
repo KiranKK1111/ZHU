@@ -7,6 +7,8 @@ export interface EngineInfo {
   port: number | null;
   token: string | null;
   error: string | null;
+  /** The engine did not stop when asked: only restarting ZHU can start it again. */
+  stuck?: boolean;
 }
 
 export type HotkeyAction =

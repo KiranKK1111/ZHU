@@ -50,7 +50,7 @@ The app shows only: audio sources and devices, language, the speech model, stori
 | Variable | Purpose |
 |---|---|
 | `ZHU_ENGINE_TOKEN` | Bearer token (set by the shell; required) |
-| `ZHU_PARENT_PID` | Exit when this process exits |
+| `ZHU_PARENT_PID` | Stand-alone engine only (`python -m zhu_engine`, tests): exit when this process exits. The app runs the engine inside its own process and does not use it |
 | `ZHU_DATA_DIR` | Data directory override (default `%LOCALAPPDATA%\app.zhu.desktop\data`) |
 | `ZHU_LOG_LEVEL` | `INFO` by default |
 | `ZHU_ENGINE_CMD` | (Shell, development) command used to start the engine |

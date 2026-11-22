@@ -31,6 +31,8 @@ async function call<T>(cmd: string, args?: Record<string, unknown>): Promise<T> 
 export const shell = {
   engineInfo: () => call<EngineInfo>("engine_info"),
   restartEngine: () => call<EngineInfo>("restart_engine"),
+  /** Start ZHU again (the way out when the engine is stuck). */
+  restartApp: () => call<void>("restart_app"),
   showMain: () => call<void>("show_main"),
   showSidecar: () => call<void>("show_sidecar"),
   hideSidecar: () => call<void>("hide_sidecar"),

@@ -1,6 +1,8 @@
 ; ZHU installer hooks (Tauri NSIS).
 ;
-; The Tauri installer closes zhu.exe, but it does not know about the engine child process.
+; ZHU runs its engine inside zhu.exe, which the Tauri installer closes. Versions before that ran
+; the engine as a separate zhu-engine.exe, which the installer did not know about; stopping it
+; is kept for updates from those versions.
 ; Measured in real uninstall tests: DLLs still loaded by a shutting-down zhu-engine.exe were locked
 ; and silently left behind (31 files / 97 MB, then 41 files / 126 MB with a fixed 1.5 s wait,
 ; because a process with CUDA libraries loaded can take longer to release its files).

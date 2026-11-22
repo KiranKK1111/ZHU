@@ -1,8 +1,9 @@
 //! ZHU desktop shell (Tauri 2).
 //!
 //! Responsibilities: window management (main, sidecar), system tray,
-//! global hotkeys, autostart, single instance, engine supervision, sidecar edge
-//! snapping and off-screen recovery, the switch that takes ZHU out of the taskbar, Alt+Tab and
+//! global hotkeys, autostart, single instance, the processing engine (which runs inside this
+//! process: engine.rs supervises it, embedded.rs loads it), sidecar edge snapping and off-screen
+//! recovery, the switch that takes ZHU out of the taskbar, Alt+Tab and
 //! screen captures (bars.rs), and the embedded web chat tabs (webchat.rs). Everything here uses
 //! documented Tauri and Windows behavior. The app stays an ordinary, visible process: no process
 //! hiding. With the hide switch on, its windows are still on the user's screen, on top of other
@@ -10,6 +11,8 @@
 
 mod bars;
 mod bubble;
+/// Public for examples/embedded_check.rs, which packaging/build.ps1 runs against a fresh engine.
+pub mod embedded;
 mod engine;
 mod resize_cursor;
 mod sidecar;
@@ -78,7 +81,10 @@ fn engine_info(state: tauri::State<AppState>) -> EngineInfo {
 #[tauri::command]
 async fn restart_engine(app: AppHandle, state: tauri::State<'_, AppState>) -> Result<EngineInfo, String> {
     state.engine.reset_restart_budget();
-    state.engine.start(&app);
+    // Stopping the running engine takes a moment: not on the thread that draws the windows.
+    let engine = state.engine.clone();
+    let handle = app.clone();
+    tauri::async_runtime::spawn_blocking(move || engine.start(&handle)).await.map_err(|e| e.to_string())?;
     // Wait for the new generation to become ready or fail (the event also notifies all windows).
     for _ in 0..180 {
         tauri::async_runtime::spawn_blocking(|| std::thread::sleep(std::time::Duration::from_millis(500)))
@@ -91,6 +97,62 @@ async fn restart_engine(app: AppHandle, state: tauri::State<'_, AppState>) -> Re
     }
     Ok(state.engine.info())
 }
+
+/// Start ZHU again: the way back when the engine is stuck and will not stop (see engine.rs).
+#[tauri::command]
+fn restart_app(app: AppHandle) -> Result<(), String> {
+    let exe = std::env::current_exe().map_err(|e| format!("ZHU could not find itself: {e}"))?;
+    // The new ZHU waits until this one has gone; otherwise it would find this one still running
+    // and hand over to it (single instance).
+    std::process::Command::new(exe)
+        .arg(format!("{WAIT_FOR}{}", std::process::id()))
+        .spawn()
+        .map_err(|e| format!("ZHU could not be started again: {e}"))?;
+    quit_app(&app);
+    Ok(())
+}
+
+/// Quit: the windows go at once, the engine is stopped in order (bounded), then ZHU exits.
+fn quit_app(app: &AppHandle) {
+    let st = app.state::<AppState>();
+    if st.quitting.swap(true, Ordering::SeqCst) {
+        return;
+    }
+    for window in app.webview_windows().values() {
+        let _ = window.hide();
+    }
+    let handle = app.clone();
+    std::thread::spawn(move || {
+        handle.state::<AppState>().engine.shutdown(&handle);
+        handle.exit(0);
+    });
+}
+
+/// `--wait-for=<pid>`: given by `restart_app` to the new ZHU.
+const WAIT_FOR: &str = "--wait-for=";
+
+/// Wait (bounded) until the process `pid` has ended.
+#[cfg(windows)]
+fn wait_for_process(pid: u32) {
+    use std::ffi::c_void;
+    #[link(name = "kernel32")]
+    extern "system" {
+        fn OpenProcess(access: u32, inherit: i32, pid: u32) -> *mut c_void;
+        fn WaitForSingleObject(handle: *mut c_void, milliseconds: u32) -> u32;
+        fn CloseHandle(handle: *mut c_void) -> i32;
+    }
+    const SYNCHRONIZE: u32 = 0x0010_0000;
+    unsafe {
+        let handle = OpenProcess(SYNCHRONIZE, 0, pid);
+        if !handle.is_null() {
+            WaitForSingleObject(handle, 30_000);
+            CloseHandle(handle);
+        }
+    }
+}
+
+#[cfg(not(windows))]
+fn wait_for_process(_pid: u32) {}
 
 #[tauri::command]
 fn show_main(app: AppHandle) {
@@ -379,10 +441,11 @@ fn build_tray(app: &AppHandle) -> tauri::Result<()> {
     let new_session = MenuItem::with_id(app, "new_session", "New session", true, None::<&str>)?;
     let click = MenuItem::with_id(app, "click_through", "Enable sidecar click-through", true, None::<&str>)?;
     let settings = MenuItem::with_id(app, "settings", "Settings", true, None::<&str>)?;
+    let restart_engine = MenuItem::with_id(app, "restart_engine", "Restart the engine", true, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", "Quit ZHU", true, None::<&str>)?;
     let sep1 = PredefinedMenuItem::separator(app)?;
     let sep2 = PredefinedMenuItem::separator(app)?;
-    let menu = Menu::with_items(app, &[&show, &sidecar, &hide_bars, &sep1, &listening, &new_session, &click, &settings, &sep2, &quit])?;
+    let menu = Menu::with_items(app, &[&show, &sidecar, &hide_bars, &sep1, &listening, &new_session, &click, &settings, &sep2, &restart_engine, &quit])?;
 
     let tray = TrayIconBuilder::with_id("zhu")
         .icon(app.default_window_icon().cloned().expect("app icon missing"))
@@ -413,11 +476,15 @@ fn build_tray(app: &AppHandle) -> tauri::Result<()> {
                     let on = !app.state::<AppState>().click_through.load(Ordering::SeqCst);
                     let _ = apply_click_through(app, on);
                 }
-                "quit" => {
-                    app.state::<AppState>().quitting.store(true, Ordering::SeqCst);
-                    app.state::<AppState>().engine.shutdown();
-                    app.exit(0);
+                "restart_engine" => {
+                    let handle = app.clone();
+                    std::thread::spawn(move || {
+                        let engine = handle.state::<AppState>().engine.clone();
+                        engine.reset_restart_budget();
+                        engine.start(&handle);
+                    });
                 }
+                "quit" => quit_app(app),
                 _ => {}
             }
         })
@@ -439,6 +506,10 @@ fn build_tray(app: &AppHandle) -> tauri::Result<()> {
 pub fn run() {
     use tauri_plugin_window_state::StateFlags;
 
+    // Started again by `restart_app`: the old ZHU must be gone first.
+    if let Some(pid) = std::env::args().find_map(|a| a.strip_prefix(WAIT_FOR).and_then(|p| p.parse::<u32>().ok())) {
+        wait_for_process(pid);
+    }
     let supervisor = EngineSupervisor::new();
     let started_minimized = std::env::args().any(|a| a == "--minimized");
 
@@ -485,6 +556,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             engine_info,
             restart_engine,
+            restart_app,
             show_main,
             show_sidecar,
             hide_sidecar,
@@ -515,7 +587,7 @@ pub fn run() {
             let handle = app.handle().clone();
             build_tray(&handle)?;
             register_hotkeys(&handle, &default_hotkeys());
-            supervisor.start(&handle);
+            supervisor.start_at_launch(&handle);
             if let Some(sc) = app.get_webview_window("sidecar") {
                 sidecar::install(&sc);
             }
@@ -562,9 +634,9 @@ pub fn run() {
                         let _ = window.hide();
                     }
                     "main" => {
-                        st.quitting.store(true, Ordering::SeqCst);
-                        st.engine.shutdown();
-                        app.exit(0);
+                        // Closing it quits ZHU (close-to-tray is off, or ZHU is quitting already).
+                        api.prevent_close();
+                        quit_app(app);
                     }
                     "sidecar" => {
                         api.prevent_close();
@@ -577,8 +649,9 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("error while building ZHU")
         .run(|app, event| {
+            // Any other way out (the engine was stopped already when ZHU quits through quit_app).
             if let tauri::RunEvent::Exit = event {
-                app.state::<AppState>().engine.shutdown();
+                app.state::<AppState>().engine.shutdown(app);
             }
         });
 }

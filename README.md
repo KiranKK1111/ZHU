@@ -203,7 +203,7 @@ More in [Security and privacy](docs/SECURITY_PRIVACY.md).
 ZHU
 ├── apps/desktop          The desktop app (Tauri 2)
 │   ├── src               Front end: React and TypeScript
-│   └── src-tauri         Windows shell in Rust: windows, tray, shortcuts, hide mode, engine supervisor
+│   └── src-tauri         Windows shell in Rust: windows, tray, shortcuts, hide mode, runs the engine in-process
 ├── engine/zhu_engine     The processing engine in Python (local server on 127.0.0.1, token-protected)
 │   ├── audio · vad · stt Capture, voice detection, speech recognition (Whisper or NVIDIA Parakeet)
 │   ├── questions         Question detection: rule-based, runs on the processor

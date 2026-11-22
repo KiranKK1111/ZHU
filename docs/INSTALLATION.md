@@ -30,7 +30,8 @@ py -3 -m venv .venv
 .venv\Scripts\python -m pytest            # unit + integration tests
 .venv\Scripts\python -m evaluation.evaluate --dataset evaluation\question_heldout.json
 
-# Desktop app (the debug shell starts the engine from engine\.venv automatically)
+# Desktop app. A debug build runs the engine inside zhu.exe with the Python of engine\.venv and the
+# engine's source code, so an engine change needs no packaging.
 cd ..\apps\desktop
 npm install
 npm test

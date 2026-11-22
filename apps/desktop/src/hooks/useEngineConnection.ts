@@ -1,7 +1,8 @@
 /**
- * Engine connection lifecycle. In the desktop app the Rust shell owns the engine
- * process and hands over {port, token}. In a plain browser (developer mode) the
- * connection comes from ?port=&token= or from a value saved by the dev form.
+ * Engine connection lifecycle. In the desktop app the Rust shell runs the engine (inside its own
+ * process) and hands over {port, token}; it announces every change of state as `zhu://engine`.
+ * In a plain browser (developer mode) the connection comes from ?port=&token= or from a value
+ * saved by the dev form.
  */
 import { useCallback, useEffect, useState } from "react";
 import { getConnection, setConnection } from "@/services/engine";
@@ -9,11 +10,20 @@ import { inTauri, onShellEvent, shell } from "@/services/shell";
 import type { EngineInfo } from "@/types/shell";
 import { errorMessage } from "@/utils/format";
 
-export type ConnectionState = { status: "starting" } | { status: "ready" } | { status: "failed"; error: string } | { status: "dev-unconfigured" };
+export type ConnectionState =
+  | { status: "starting" }
+  | { status: "ready" }
+  | { status: "failed"; error: string; stuck: boolean }
+  | { status: "dev-unconfigured" };
 
 const DEV_KEY = "zhu.dev.connection";
 
-export function useEngineConnection(): { state: ConnectionState; restart: () => Promise<void>; connectDev: (port: number, token: string) => void } {
+export function useEngineConnection(): {
+  state: ConnectionState;
+  restart: () => Promise<void>;
+  restartApp: () => Promise<void>;
+  connectDev: (port: number, token: string) => void;
+} {
   const [state, setState] = useState<ConnectionState>(() => (getConnection() ? { status: "ready" } : { status: "starting" }));
 
   const apply = useCallback((info: EngineInfo) => {
@@ -22,8 +32,10 @@ export function useEngineConnection(): { state: ConnectionState; restart: () => 
       setState({ status: "ready" });
     } else if (info.status === "failed") {
       setConnection(null);
-      setState({ status: "failed", error: info.error ?? "The local engine could not be started." });
+      setState({ status: "failed", error: info.error ?? "The local engine could not be started.", stuck: !!info.stuck });
     } else {
+      // A new start gets a new port and token; the old ones lead nowhere meanwhile.
+      setConnection(null);
       setState({ status: "starting" });
     }
   }, []);
@@ -58,7 +70,7 @@ export function useEngineConnection(): { state: ConnectionState; restart: () => 
     shell
       .engineInfo()
       .then((info) => !cancelled && apply(info))
-      .catch((err) => !cancelled && setState({ status: "failed", error: errorMessage(err) }));
+      .catch((err) => !cancelled && setState({ status: "failed", error: errorMessage(err), stuck: false }));
     return () => {
       cancelled = true;
       unlisten?.();
@@ -71,9 +83,17 @@ export function useEngineConnection(): { state: ConnectionState; restart: () => 
     try {
       apply(await shell.restartEngine());
     } catch (err) {
-      setState({ status: "failed", error: errorMessage(err) });
+      setState({ status: "failed", error: errorMessage(err), stuck: false });
     }
   }, [apply]);
+
+  const restartApp = useCallback(async () => {
+    try {
+      await shell.restartApp();
+    } catch (err) {
+      setState({ status: "failed", error: errorMessage(err), stuck: true });
+    }
+  }, []);
 
   const connectDev = useCallback((port: number, token: string) => {
     try {
@@ -85,5 +105,5 @@ export function useEngineConnection(): { state: ConnectionState; restart: () => 
     setState({ status: "ready" });
   }, []);
 
-  return { state, restart, connectDev };
+  return { state, restart, restartApp, connectDev };
 }

@@ -13,7 +13,7 @@ import { Kbd } from "@/components/primitives/Kbd";
 import { WebChatOptions } from "@/features/webchat/WebChatOptions";
 import { useProviders } from "@/hooks/useProviders";
 import { api } from "@/services/engine";
-import { autostart, inTauri } from "@/services/shell";
+import { autostart, inTauri, shell } from "@/services/shell";
 import { DEFAULT_HOTKEYS, HOTKEY_ACTIONS, HOTKEY_LABELS, type HotkeyAction } from "@/types/shell";
 import { cn } from "@/utils/cn";
 import { errorMessage } from "@/utils/format";
@@ -393,7 +393,36 @@ function General({ onEditShortcuts }: { onEditShortcuts: () => void }) {
         control={<Switch checked={minimizeToBubble} label="Show a floating icon when minimized" onCheckedChange={(v) => set({ minimizeToBubble: v })} />}
       />
       <Row title="Keep running when the window is closed" description="ZHU stays in the system tray. Choose Quit there to exit." control={<Switch checked={closeToTray} label="Keep running in the tray" onCheckedChange={(v) => set({ closeToTray: v })} />} />
+      {inTauri ? <EngineRow /> : null}
     </Card>
+  );
+}
+
+/** Restart the local engine by hand: when listening, questions or answers stop working. */
+function EngineRow() {
+  const [busy, setBusy] = useState(false);
+  const restart = async () => {
+    setBusy(true);
+    try {
+      const info = await shell.restartEngine();
+      if (info.status === "ready") toast.success("The engine was restarted");
+      // A failure is shown by the notice at the bottom of the window, with what to do next.
+    } catch (err) {
+      toast.error("The engine could not be restarted", errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Row
+      title="Processing engine"
+      description="It listens, finds the questions and asks the AI models; it runs inside ZHU. If any of that stops working, restart it. Your sessions and settings are kept. Listening stops."
+      control={
+        <Button variant="secondary" loading={busy} icon={<RotateCcw className="h-4 w-4" />} onClick={() => void restart()}>
+          Restart engine
+        </Button>
+      }
+    />
   );
 }
 

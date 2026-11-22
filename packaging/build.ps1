@@ -10,7 +10,8 @@
     4. Pack the NVIDIA libraries (pack_cuda.py): compressed once and kept in build\cuda-pack; the
        installer is made from build\stage\zhu-engine, which holds them compressed.
     5. Install front-end dependencies, run the front-end tests, and build the Tauri app with NSIS.
-    6. Copy the installer to dist\ZHU-Setup.exe and write a SHA-256 checksum file.
+    6. Run the frozen engine inside a process the way the app does (examples/embedded_check.rs).
+    7. Copy the installer to dist\ZHU-Setup.exe and write a SHA-256 checksum file.
 
   Speech models are NOT bundled. On first launch ZHU offers a one-time download into
   %LOCALAPPDATA%\app.zhu.desktop\data\models. Later launches detect the installed model and skip the setup screen.
@@ -123,6 +124,16 @@ try {
   $bundleFile = Join-Path $Build 'tauri.bundle.json'
   [System.IO.File]::WriteAllText($bundleFile, ($bundle | ConvertTo-Json -Depth 10), (New-Object System.Text.UTF8Encoding $false))
   npx tauri build --config $bundleFile; Check $LASTEXITCODE 'tauri build'
+
+  # ZHU runs the engine inside its own process (src-tauri/src/embedded.rs). Do exactly that with
+  # the engine just frozen: start it in a process, ask it, stop it, and the same once more. It uses
+  # build\zhu-engine, whose NVIDIA libraries are unpacked, and leaves that folder as it is.
+  Step 'Engine inside the app process'
+  Push-Location 'src-tauri'
+  try {
+    $env:ZHU_LOG_LEVEL = 'WARNING'
+    cargo run --release --quiet --example embedded_check -- $Build; Check $LASTEXITCODE 'the engine inside the app process'
+  } finally { Remove-Item Env:ZHU_LOG_LEVEL -ErrorAction SilentlyContinue; Pop-Location }
 } finally { Pop-Location }
 
 Step 'Collect installer'

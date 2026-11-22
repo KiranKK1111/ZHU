@@ -1,9 +1,17 @@
-# Builds dist\ZHU-Setup.exe with packaging\build.ps1 (tests, frozen engine, Tauri app, NSIS installer).
+# Builds dist\ZHU-Setup.exe with packaging\build.ps1 (tests, frozen engine, Tauri app, NSIS installer)
+# and releases it under a version that packaging\version.ps1 works out from the commits.
 #
-#   * Pushing a version tag (v0.2.0, v1.0.0-beta.1, ...) builds the installer and publishes it as a
-#     GitHub Release for that tag, with its SHA-256 checksum.
-#   * "Run workflow" on the Actions page builds the same installer from any branch and keeps it as
-#     a downloadable artifact of the run, without a release. Use it to try the build before tagging.
+#   * Every push to main (other than documentation-only changes) becomes a release. The version
+#     follows from the commit messages since the last release: a breaking change raises the main
+#     version, a new feature the sub version, anything else the patch (rules: packaging\version.ps1).
+#     The workflow writes that version into the app, builds, and publishes a GitHub Release with
+#     the tag vX.Y.Z, the installer and its SHA-256 checksum.
+#   * Pushing a tag by hand (git tag v2.0.0; git push origin v2.0.0) releases exactly that version.
+#   * "Run workflow" on the Actions page builds the next version without releasing it; the
+#     installer is kept with the run for 14 days.
+#
+# The version in the repository's files is only the starting point (the first release). The
+# workflow never commits: released versions live in the tags.
 #
 # The runner has no NVIDIA card: the engine's smoke test then reports "CUDA available: False",
 # which is expected. The CUDA runtime is still bundled, from the pip wheels.
@@ -12,22 +20,68 @@ name: Build installer
 
 on:
   push:
+    branches: [main]
     tags: ["v*"]
+    # A push that changes only documentation does not need a new installer.
+    # (GitHub does not apply this filter to tags: a version tag always builds.)
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - "LICENSE"
+      - ".gitignore"
   workflow_dispatch:
 
 permissions:
-  contents: write # to create the release and attach the installer
+  contents: write # to create the tag and the release, and attach the installer
 
 concurrency:
   group: installer-${{ github.ref }}
-  cancel-in-progress: false
+  # A newer push to a branch replaces the build of the older one (its commits are then part of
+  # the newer release); the build of a tag pushed by hand always finishes.
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
 
 jobs:
+  version:
+    name: Work out the version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.plan.outputs.version }}
+      tag: ${{ steps.plan.outputs.tag }}
+      build: ${{ steps.plan.outputs.build }}
+      release: ${{ steps.plan.outputs.release }}
+    steps:
+      - name: Check out, with the history and the tags
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Decide the version, and whether to build and release
+        id: plan
+        shell: pwsh
+        run: |
+          $byTag = $env:GITHUB_REF -like 'refs/tags/v*'
+          if ($byTag) { ./packaging/version.ps1 -Set $env:GITHUB_REF_NAME }
+          else { ./packaging/version.ps1 }
+          $facts = @{}
+          Get-Content $env:GITHUB_OUTPUT | ForEach-Object { $name, $value = $_ -split '=', 2; $facts[$name] = $value }
+          $build = 'true'; $release = 'false'
+          if ($byTag) { $release = 'true' }
+          elseif ($env:GITHUB_EVENT_NAME -eq 'push') {
+            # A commit that already carries its version tag is built by that tag's own run.
+            if ($facts.bump -eq 'none') { $build = 'false' } else { $release = 'true' }
+          }
+          "tag=v$($facts.version)", "build=$build", "release=$release" | Add-Content -Path $env:GITHUB_OUTPUT -Encoding utf8
+          "### ZHU $($facts.version)`n`nbuild: $build · release: $release · decided by: $($facts.bump)" | Add-Content -Path $env:GITHUB_STEP_SUMMARY -Encoding utf8
+
   installer:
-    name: ZHU-Setup.exe
+    name: ZHU-Setup.exe ${{ needs.version.outputs.version }}
+    needs: version
+    if: needs.version.outputs.build == 'true'
     runs-on: windows-latest
     timeout-minutes: 120
     env:
+      VERSION: ${{ needs.version.outputs.version }}
+      TAG: ${{ needs.version.outputs.tag }}
       # build.ps1 limits cargo to 2 jobs for 16 GB laptops; the runner can take more.
       CARGO_BUILD_JOBS: "4"
       PYTHONUTF8: "1"
@@ -36,15 +90,9 @@ jobs:
       - name: Check out
         uses: actions/checkout@v4
 
-      - name: Compare the tag with the app's version
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: Write the version into the app
         shell: pwsh
-        run: |
-          $app = (Get-Content apps/desktop/src-tauri/tauri.conf.json -Raw | ConvertFrom-Json).version
-          $tag = $env:GITHUB_REF_NAME -replace '^v', ''
-          if ($app -ne $tag) {
-            Write-Output "::warning title=Version mismatch::The tag is $env:GITHUB_REF_NAME but the app's version is $app. The installer and the app will show $app. See docs/INSTALLATION.md, Releasing."
-          }
+        run: ./packaging/version.ps1 -Set $env:VERSION
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -78,7 +126,7 @@ jobs:
       - name: Keep the installer with this run
         uses: actions/upload-artifact@v4
         with:
-          name: ZHU-Setup
+          name: ZHU-Setup-${{ needs.version.outputs.version }}
           path: |
             dist/ZHU-Setup.exe
             dist/ZHU-Setup.exe.sha256
@@ -87,12 +135,12 @@ jobs:
           retention-days: 14
 
       - name: Publish the release
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: needs.version.outputs.release == 'true'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $tag = $env:GITHUB_REF_NAME
+          $tag = $env:TAG
           $files = @('dist/ZHU-Setup.exe', 'dist/ZHU-Setup.exe.sha256')
           $hash = (Get-Content dist/ZHU-Setup.exe.sha256 -Raw).Split(' ')[0]
           $notes = @"
@@ -104,9 +152,10 @@ jobs:
           "@
           gh release view $tag *> $null
           if ($LASTEXITCODE -eq 0) {
-            # The release exists (the workflow was run again for the same tag): replace its files.
+            # The release exists (the workflow was run again for the same version): replace its files.
             gh release upload $tag @files --clobber
           } else {
-            gh release create $tag @files --title "ZHU $tag" --notes $notes --generate-notes --verify-tag
+            # Creates the tag on this commit when it does not exist yet (a push to main).
+            gh release create $tag @files --title "ZHU $tag" --notes $notes --generate-notes --target $env:GITHUB_SHA
           }
           exit $LASTEXITCODE

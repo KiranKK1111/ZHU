@@ -177,14 +177,15 @@ This runs the tests, freezes the engine, builds the app and writes `dist\ZHU-Set
 
 ### Publish a version
 
-Pushing a version tag builds the installer on GitHub and publishes it as a release:
+Push to `main` and GitHub does the rest: it works out the next version from your commit messages, builds the installer, and publishes it on the [Releases](../../releases) page.
 
-```powershell
-git tag v0.2.0
-git push origin v0.2.0
-```
+| Your commit says | Version goes |
+|---|---|
+| `feat!: …`, or `BREAKING CHANGE: …` in the message | 1.4.2 → **2**.0.0 |
+| `feat: …`, or starts with Add, Implement, New, Support… | 1.4.2 → 1.**5**.0 |
+| anything else (fixes, clean-ups) | 1.4.2 → 1.4.**3** |
 
-To try the build without releasing, open **Actions → Build installer → Run workflow**. See [Installation, Releasing](docs/INSTALLATION.md#releasing-the-installer-is-built-on-github) for the version numbers to update first.
+`packaging\version.ps1` tells you what the next version would be before you push. A push that changes only documentation is skipped. Details: [Installation, Releasing](docs/INSTALLATION.md#releasing-the-installer-is-built-on-github).
 
 ## Privacy
 

@@ -56,18 +56,23 @@ The script:
 
 ### Releasing: the installer is built on GitHub
 
-`.github/workflows/release.yml` runs the same script on a GitHub Windows runner.
+`.github/workflows/release.yml` runs the same script on a GitHub Windows runner, under a version number it works out by itself.
 
-* **Pushing a version tag** builds the installer and publishes it as a GitHub Release for that tag, with its SHA-256:
+* **Every push to `main` becomes a release.** The workflow reads the commit messages since the last release, decides the next version, writes it into the app, builds the installer, and publishes a GitHub Release with the tag `vX.Y.Z`, the installer and its SHA-256. A push that changes only documentation is skipped, and a newer push cancels the build of an older one (its commits then belong to the newer release).
+* **Actions → Build installer → Run workflow** builds the next version from any branch without releasing it; the installer is kept with that run as an artifact for 14 days.
+* **A tag pushed by hand** releases exactly that version, whatever the commits say: `git tag v2.0.0`, then `git push origin v2.0.0`.
 
-  ```powershell
-  git tag v0.2.0
-  git push origin v0.2.0
-  ```
+**How the version is decided** (`packagingersion.ps1`), from the first line of each commit message since the last release. The largest change decides:
 
-* **Actions → Build installer → Run workflow** builds from any branch without making a release; the installer is kept with that run as an artifact for 14 days. Use it to try the build before tagging.
+| Part | Example | Raised by |
+|---|---|---|
+| Main version | 1.4.2 → 2.0.0 | A change that breaks something people rely on: `feat!: …`, `fix(api)!: …`, a line `BREAKING CHANGE: …` in the message, or a message starting with `major:` or `breaking:` |
+| Sub version | 1.4.2 → 1.5.0 | A new feature: `feat: …`, or a message starting with Add, Implement, Introduce, New, Support, Enable, Allow or Create |
+| Patch | 1.4.2 → 1.4.3 | Everything else: fixes, clean-ups, wording, build changes |
 
-Before tagging, set the new version in the five places that carry it, and commit: `apps/desktop/src-tauri/tauri.conf.json`, `apps/desktop/src-tauri/Cargo.toml`, `apps/desktop/package.json`, `engine/pyproject.toml` and `packaging/engine_version.txt`. The workflow warns when the tag and `tauri.conf.json` differ, and builds anyway.
+So the wording of a commit matters: "Add export to PDF" gives a new sub version, "Fix export to PDF" a patch. To see what the next version would be before pushing, run `packagingersion.ps1`; it only reports.
+
+The version written in the repository's files (`0.1.0`) is only the starting point: with no release yet, the first one takes it. After that the tags hold the versions, and the workflow writes the number into the app at build time (`tauri.conf.json`, `Cargo.toml`, `Cargo.lock`, `package.json`, `package-lock.json`, `pyproject.toml`, the engine's `__init__.py` and `engine_version.txt`) without committing anything. A build on your own computer therefore shows the version in the files, unless you run `packagingersion.ps1 -Apply` first.
 
 A first build takes about an hour (Rust from scratch, the CUDA wheels, compressing 850 MB); later ones reuse cached dependencies. The runner has no NVIDIA card, so the smoke test prints "CUDA available: False"; the CUDA runtime is bundled regardless. Dependencies are not pinned to exact versions, so a build on GitHub can pick up newer packages than the ones on your computer.
 

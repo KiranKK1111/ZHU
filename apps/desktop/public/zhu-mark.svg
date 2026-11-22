@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!--
+    The ZHU mark: the one source of every icon of the app (title bar, splash, floating icon,
+    taskbar, tray, installer). A speech bubble holding a voice waveform, for the conversation ZHU
+    listens to, and a spark for the answer it helps with.
+    After changing it, run `npm run icons` in apps/desktop to regenerate src-tauri/icons.
+  -->
+  <defs>
+    <linearGradient id="zhu-bg" x1="120" y1="60" x2="900" y2="980" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#B3A4FF"/>
+      <stop offset="0.45" stop-color="#7F6EF6"/>
+      <stop offset="1" stop-color="#4B3FD8"/>
+    </linearGradient>
+    <linearGradient id="zhu-sheen" x1="512" y1="40" x2="512" y2="620" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.26"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="zhu-wave" x1="0" y1="330" x2="0" y2="670" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#7A69F4"/>
+      <stop offset="1" stop-color="#4434C9"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="40" y="40" width="944" height="944" rx="232" fill="url(#zhu-bg)"/>
+  <rect x="40" y="40" width="944" height="944" rx="232" fill="url(#zhu-sheen)"/>
+  <rect x="42" y="42" width="940" height="940" rx="230" fill="none" stroke="#FFFFFF" stroke-opacity="0.16" stroke-width="4"/>
+
+  <!-- the conversation -->
+  <path fill="#FFFFFF" d="M280 260 H696 A128 128 0 0 1 824 388 V612 A128 128 0 0 1 696 740 H452 L292 860 C276 872 256 858 262 840 L292 740 H280 A128 128 0 0 1 152 612 V388 A128 128 0 0 1 280 260 Z"/>
+
+  <!-- the voice in it -->
+  <g fill="url(#zhu-wave)">
+    <rect x="268" y="435" width="56" height="130" rx="28"/>
+    <rect x="364" y="375" width="56" height="250" rx="28"/>
+    <rect x="460" y="335" width="56" height="330" rx="28"/>
+    <rect x="556" y="385" width="56" height="230" rx="28"/>
+    <rect x="652" y="430" width="56" height="140" rx="28"/>
+  </g>
+
+  <!-- the answer -->
+  <path fill="#FFFFFF" d="M846 104 C852 150 870 168 916 174 C870 180 852 198 846 244 C840 198 822 180 776 174 C822 168 840 150 846 104 Z"/>
+</svg>

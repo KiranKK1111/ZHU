@@ -1,0 +1,1072 @@
+{
+ "version": 1,
+ "description": "Labelled conversations for the ZHU question engine. Each item is a sequence of finalized STT utterances (separated by a pause of pause_ms, default 3000). 'expected' lists the questions that should be produced, in order. 'text' is the expected formatted text (exact match is measured separately from detection). Non-question items have expected = [].",
+ "items": [
+  {
+   "id": "direct-1",
+   "tags": [
+    "direct",
+    "short"
+   ],
+   "utterances": [
+    "What is polymorphism?"
+   ],
+   "expected": [
+    {
+     "text": "What is polymorphism?",
+     "kind": "DIRECT",
+     "category": "JAVA"
+    }
+   ]
+  },
+  {
+   "id": "direct-2",
+   "tags": [
+    "direct"
+   ],
+   "utterances": [
+    "how does garbage collection work"
+   ],
+   "expected": [
+    {
+     "text": "How does garbage collection work?",
+     "kind": "DIRECT",
+     "category": "JAVA"
+    }
+   ]
+  },
+  {
+   "id": "direct-3",
+   "tags": [
+    "direct"
+   ],
+   "utterances": [
+    "why do we use dependency injection"
+   ],
+   "expected": [
+    {
+     "text": "Why do we use dependency injection?",
+     "kind": "DIRECT",
+     "category": "SPRING_BOOT"
+    }
+   ]
+  },
+  {
+   "id": "direct-4",
+   "tags": [
+    "direct",
+    "database"
+   ],
+   "utterances": [
+    "what is database normalization and why is it important"
+   ],
+   "expected": [
+    {
+     "text": "What is database normalization and why is it important?",
+     "kind": "MULTI_PART",
+     "category": "DATABASE",
+     "subquestions": 2
+    }
+   ]
+  },
+  {
+   "id": "direct-5",
+   "tags": [
+    "direct",
+    "react"
+   ],
+   "utterances": [
+    "what is the virtual dom in react"
+   ],
+   "expected": [
+    {
+     "text": "What is the virtual DOM in React?",
+     "kind": "DIRECT",
+     "category": "REACT"
+    }
+   ]
+  },
+  {
+   "id": "direct-6",
+   "tags": [
+    "direct",
+    "devops"
+   ],
+   "utterances": [
+    "what is the difference between a docker image and a container"
+   ],
+   "expected": [
+    {
+     "text": "What is the difference between a Docker image and a container?",
+     "kind": "DIRECT",
+     "category": "DEVOPS"
+    }
+   ]
+  },
+  {
+   "id": "direct-7",
+   "tags": [
+    "direct",
+    "python"
+   ],
+   "utterances": [
+    "what is the gil in python"
+   ],
+   "expected": [
+    {
+     "text": "What is the GIL in Python?",
+     "kind": "DIRECT",
+     "category": "PYTHON"
+    }
+   ]
+  },
+  {
+   "id": "direct-8",
+   "tags": [
+    "direct",
+    "cloud"
+   ],
+   "utterances": [
+    "how do you secure an s3 bucket in aws"
+   ],
+   "expected": [
+    {
+     "text": "How do you secure an S3 bucket in AWS?",
+     "kind": "DIRECT",
+     "category": "CLOUD"
+    }
+   ]
+  },
+  {
+   "id": "aux-1",
+   "tags": [
+    "direct",
+    "auxiliary"
+   ],
+   "utterances": [
+    "can you explain what is dependency injection and how spring boot manages beans"
+   ],
+   "expected": [
+    {
+     "text": "Can you explain what dependency injection is and how Spring Boot manages beans?",
+     "kind": "DIRECT",
+     "category": "SPRING_BOOT"
+    }
+   ]
+  },
+  {
+   "id": "aux-2",
+   "tags": [
+    "direct",
+    "auxiliary"
+   ],
+   "utterances": [
+    "is java pass by value or pass by reference"
+   ],
+   "expected": [
+    {
+     "text": "Is Java pass by value or pass by reference?",
+     "kind": "DIRECT",
+     "category": "JAVA"
+    }
+   ]
+  },
+  {
+   "id": "aux-3",
+   "tags": [
+    "direct",
+    "auxiliary"
+   ],
+   "utterances": [
+    "have you worked with kafka before"
+   ],
+   "expected": [
+    {
+     "text": "Have you worked with Kafka before?",
+     "kind": "BEHAVIORAL",
+     "category": [
+      "BEHAVIORAL",
+      "MICROSERVICES"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "imp-1",
+   "tags": [
+    "imperative"
+   ],
+   "utterances": [
+    "Explain the Spring Bean lifecycle."
+   ],
+   "expected": [
+    {
+     "text": "Explain the Spring Bean lifecycle.",
+     "kind": "IMPERATIVE",
+     "category": "SPRING_BOOT"
+    }
+   ]
+  },
+  {
+   "id": "imp-2",
+   "tags": [
+    "imperative"
+   ],
+   "utterances": [
+    "describe your project architecture"
+   ],
+   "expected": [
+    {
+     "text": "Describe your project architecture.",
+     "kind": "IMPERATIVE",
+     "category": "SYSTEM_DESIGN"
+    }
+   ]
+  },
+  {
+   "id": "imp-3",
+   "tags": [
+    "imperative"
+   ],
+   "utterances": [
+    "compare rest and graphql"
+   ],
+   "expected": [
+    {
+     "text": "Compare REST and GraphQL.",
+     "kind": "IMPERATIVE",
+     "category": "SYSTEM_DESIGN"
+    }
+   ]
+  },
+  {
+   "id": "imp-4",
+   "tags": [
+    "imperative"
+   ],
+   "utterances": [
+    "Explain dependency injection."
+   ],
+   "expected": [
+    {
+     "text": "Explain dependency injection.",
+     "kind": "IMPERATIVE",
+     "category": "SPRING_BOOT"
+    }
+   ]
+  },
+  {
+   "id": "imp-5",
+   "tags": [
+    "imperative"
+   ],
+   "utterances": [
+    "walk me through how a https request works"
+   ],
+   "expected": [
+    {
+     "text": "Walk me through how a HTTPS request works.",
+     "kind": "IMPERATIVE",
+     "category": "SYSTEM_DESIGN"
+    }
+   ]
+  },
+  {
+   "id": "code-1",
+   "tags": [
+    "coding"
+   ],
+   "utterances": [
+    "Write a program to reverse a linked list."
+   ],
+   "expected": [
+    {
+     "text": "Write a program to reverse a linked list.",
+     "kind": "CODING_TASK",
+     "category": "DATA_STRUCTURES"
+    }
+   ]
+  },
+  {
+   "id": "code-2",
+   "tags": [
+    "coding",
+    "java"
+   ],
+   "utterances": [
+    "write a java program to find the second non repeating character in a string"
+   ],
+   "expected": [
+    {
+     "text": "Write a Java program to find the second non-repeating character in a string.",
+     "kind": "CODING_TASK",
+     "category": "JAVA"
+    }
+   ]
+  },
+  {
+   "id": "code-3",
+   "tags": [
+    "coding"
+   ],
+   "utterances": [
+    "Implement an LRU cache."
+   ],
+   "expected": [
+    {
+     "text": "Implement an LRU cache.",
+     "kind": "CODING_TASK",
+     "category": "DATA_STRUCTURES"
+    }
+   ]
+  },
+  {
+   "id": "code-4",
+   "tags": [
+    "coding"
+   ],
+   "utterances": [
+    "find two numbers whose sum equals the target"
+   ],
+   "expected": [
+    {
+     "text": "Find two numbers whose sum equals the target.",
+     "kind": "CODING_TASK",
+     "category": "ALGORITHMS"
+    }
+   ]
+  },
+  {
+   "id": "code-5",
+   "tags": [
+    "coding"
+   ],
+   "utterances": [
+    "write a function that accepts an integer array and returns the second largest element"
+   ],
+   "expected": [
+    {
+     "text": "Write a function that accepts an integer array and returns the second-largest element.",
+     "kind": "CODING_TASK",
+     "category": "DATA_STRUCTURES"
+    }
+   ]
+  },
+  {
+   "id": "code-6",
+   "tags": [
+    "coding",
+    "complexity"
+   ],
+   "utterances": [
+    "sort the array in o of n log n time"
+   ],
+   "expected": [
+    {
+     "text": "Sort the array in O(n log n) time.",
+     "kind": "CODING_TASK",
+     "category": "ALGORITHMS"
+    }
+   ]
+  },
+  {
+   "id": "syn-1",
+   "tags": [
+    "syntax",
+    "javascript"
+   ],
+   "utterances": [
+    "what is the difference between double equals and triple equals in javascript"
+   ],
+   "expected": [
+    {
+     "text": "What is the difference between == and === in JavaScript?",
+     "kind": "DIRECT",
+     "category": "JAVASCRIPT"
+    }
+   ]
+  },
+  {
+   "id": "syn-2",
+   "tags": [
+    "syntax",
+    "complexity"
+   ],
+   "utterances": [
+    "what is the time complexity of binary search"
+   ],
+   "expected": [
+    {
+     "text": "What is the time complexity of binary search?",
+     "kind": "DIRECT",
+     "category": "ALGORITHMS"
+    }
+   ]
+  },
+  {
+   "id": "sql-1",
+   "tags": [
+    "sql"
+   ],
+   "utterances": [
+    "write a query to find the second highest salary from the employee table"
+   ],
+   "expected": [
+    {
+     "text": "Write a query to find the second-highest salary from the employee table.",
+     "kind": "CODING_TASK",
+     "category": "SQL"
+    }
+   ]
+  },
+  {
+   "id": "sql-2",
+   "tags": [
+    "sql"
+   ],
+   "utterances": [
+    "what does select star from orders where amount greater than 100 return"
+   ],
+   "expected": [
+    {
+     "text": "What does `SELECT * FROM orders WHERE amount > 100` return?",
+     "kind": "DIRECT",
+     "category": "SQL"
+    }
+   ]
+  },
+  {
+   "id": "sql-3",
+   "tags": [
+    "sql"
+   ],
+   "utterances": [
+    "what is the difference between inner join and left join"
+   ],
+   "expected": [
+    {
+     "text": "What is the difference between inner join and left join?",
+     "kind": "DIRECT",
+     "category": "SQL"
+    }
+   ]
+  },
+  {
+   "id": "math-1",
+   "tags": [
+    "math"
+   ],
+   "utterances": [
+    "what is one divided by seven multiplied by hundred"
+   ],
+   "expected": [
+    {
+     "text": "What is 1 / 7 × 100?",
+     "kind": "MATH",
+     "category": "MATH"
+    }
+   ]
+  },
+  {
+   "id": "math-2",
+   "tags": [
+    "math"
+   ],
+   "utterances": [
+    "what is twenty percent of five hundred"
+   ],
+   "expected": [
+    {
+     "text": "What is 20% of 500?",
+     "kind": "MATH",
+     "category": "MATH"
+    }
+   ]
+  },
+  {
+   "id": "math-3",
+   "tags": [
+    "math"
+   ],
+   "utterances": [
+    "solve x plus five equals twelve"
+   ],
+   "expected": [
+    {
+     "text": "Solve x + 5 = 12.",
+     "kind": "MATH",
+     "category": "MATH"
+    }
+   ]
+  },
+  {
+   "id": "math-4",
+   "tags": [
+    "math",
+    "probability"
+   ],
+   "utterances": [
+    "what is the probability of getting two heads when you toss two coins"
+   ],
+   "expected": [
+    {
+     "text": "What is the probability of getting two heads when you toss two coins?",
+     "kind": "DIRECT",
+     "category": "MATH"
+    }
+   ]
+  },
+  {
+   "id": "multi-1",
+   "tags": [
+    "multipart"
+   ],
+   "utterances": [
+    "What is a microservice, why would you use it, and how would you handle distributed transactions?"
+   ],
+   "expected": [
+    {
+     "text": "What is a microservice, why would you use it, and how would you handle distributed transactions?",
+     "kind": "MULTI_PART",
+     "category": "MICROSERVICES",
+     "subquestions": 3
+    }
+   ]
+  },
+  {
+   "id": "multi-2",
+   "tags": [
+    "multipart"
+   ],
+   "utterances": [
+    "Explain the difference between abstract class and interface, tell me when to use each, and provide a real-time example."
+   ],
+   "expected": [
+    {
+     "text": "Explain the difference between abstract class and interface, tell me when to use each, and provide a real-time example.",
+     "kind": "MULTI_PART",
+     "category": "JAVA",
+     "subquestions": 3
+    }
+   ]
+  },
+  {
+   "id": "multi-3",
+   "tags": [
+    "multipart"
+   ],
+   "utterances": [
+    "what is redis and how would you use it for caching"
+   ],
+   "expected": [
+    {
+     "text": "What is Redis and how would you use it for caching?",
+     "kind": "MULTI_PART",
+     "category": "DATABASE",
+     "subquestions": 2
+    }
+   ]
+  },
+  {
+   "id": "follow-1",
+   "tags": [
+    "followup"
+   ],
+   "utterances": [
+    "What is HashMap in Java?",
+    "How is it different from ConcurrentHashMap?"
+   ],
+   "expected": [
+    {
+     "text": "What is HashMap in Java?",
+     "kind": "DIRECT",
+     "category": "JAVA"
+    },
+    {
+     "text": "How is it different from ConcurrentHashMap?",
+     "resolved": "How is HashMap different from ConcurrentHashMap in Java?",
+     "kind": "DIRECT",
+     "category": "JAVA",
+     "follow_up": true
+    }
+   ]
+  },
+  {
+   "id": "follow-2",
+   "tags": [
+    "followup"
+   ],
+   "utterances": [
+    "What is dependency injection?",
+    "How does Spring Boot implement it?"
+   ],
+   "expected": [
+    {
+     "text": "What is dependency injection?",
+     "kind": "DIRECT",
+     "category": "SPRING_BOOT"
+    },
+    {
+     "text": "How does Spring Boot implement it?",
+     "resolved": "How does Spring Boot implement dependency injection?",
+     "kind": "DIRECT",
+     "category": "SPRING_BOOT",
+     "follow_up": true
+    }
+   ]
+  },
+  {
+   "id": "follow-3",
+   "tags": [
+    "followup"
+   ],
+   "utterances": [
+    "What is the difference between HashMap and TreeMap in Java?",
+    "Which one of them is faster for lookups?"
+   ],
+   "expected": [
+    {
+     "text": "What is the difference between HashMap and TreeMap in Java?",
+     "kind": "DIRECT",
+     "category": "JAVA"
+    },
+    {
+     "text": "Which one of them is faster for lookups?",
+     "resolved": "Which one of HashMap and TreeMap is faster for lookups in Java?",
+     "kind": "DIRECT",
+     "category": "JAVA",
+     "follow_up": true
+    }
+   ]
+  },
+  {
+   "id": "follow-4",
+   "tags": [
+    "followup"
+   ],
+   "utterances": [
+    "What is a REST API?",
+    "What about GraphQL?"
+   ],
+   "expected": [
+    {
+     "text": "What is a REST API?",
+     "kind": "DIRECT",
+     "category": "SYSTEM_DESIGN"
+    },
+    {
+     "text": "What about GraphQL?",
+     "resolved": "What is GraphQL?",
+     "kind": "DIRECT",
+     "category": "SYSTEM_DESIGN",
+     "follow_up": true
+    }
+   ]
+  },
+  {
+   "id": "interrupt-1",
+   "tags": [
+    "interrupted"
+   ],
+   "utterances": [
+    "How would you scale a relational database",
+    "Okay, that's great."
+   ],
+   "expected": [
+    {
+     "text": "How would you scale a relational database?",
+     "kind": "DIRECT",
+     "category": "DATABASE"
+    }
+   ]
+  },
+  {
+   "id": "selfcorr-1",
+   "tags": [
+    "self-correction"
+   ],
+   "utterances": [
+    "what is the difference between hash map, sorry, hash set and tree set in java"
+   ],
+   "expected": [
+    {
+     "text": "What is the difference between HashSet and TreeSet in Java?",
+     "kind": "DIRECT",
+     "category": "JAVA"
+    }
+   ]
+  },
+  {
+   "id": "selfcorr-2",
+   "tags": [
+    "self-correction"
+   ],
+   "utterances": [
+    "compare kafka, I mean, rabbit mq and redis"
+   ],
+   "expected": [
+    {
+     "text": "Compare RabbitMQ and Redis.",
+     "kind": "IMPERATIVE",
+     "category": "MICROSERVICES"
+    }
+   ]
+  },
+  {
+   "id": "pauses-1",
+   "tags": [
+    "pauses"
+   ],
+   "pause_ms": 2500,
+   "utterances": [
+    "Can you explain...",
+    "how dependency injection works...",
+    "and give me a practical example?"
+   ],
+   "expected": [
+    {
+     "text": "Can you explain how dependency injection works and give me a practical example?",
+     "kind": "DIRECT",
+     "category": "SPRING_BOOT"
+    }
+   ]
+  },
+  {
+   "id": "pauses-2",
+   "tags": [
+    "pauses"
+   ],
+   "pause_ms": 2000,
+   "utterances": [
+    "What is the difference between",
+    "a process and a thread?"
+   ],
+   "expected": [
+    {
+     "text": "What is the difference between a process and a thread?",
+     "kind": "DIRECT",
+     "category": "GENERAL"
+    }
+   ]
+  },
+  {
+   "id": "scenario-1",
+   "tags": [
+    "scenario"
+   ],
+   "utterances": [
+    "Suppose your application receives one million requests per second. How would you design the architecture?"
+   ],
+   "expected": [
+    {
+     "text": "Suppose your application receives one million requests per second. How would you design the architecture?",
+     "kind": "SCENARIO",
+     "category": "SYSTEM_DESIGN"
+    }
+   ]
+  },
+  {
+   "id": "scenario-2",
+   "tags": [
+    "scenario"
+   ],
+   "utterances": [
+    "Imagine you have a table with a billion rows and queries are slow. What would you do?"
+   ],
+   "expected": [
+    {
+     "text": "Imagine you have a table with a billion rows and queries are slow. What would you do?",
+     "kind": "SCENARIO",
+     "category": [
+      "DATABASE",
+      "SQL"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "behav-1",
+   "tags": [
+    "behavioral"
+   ],
+   "utterances": [
+    "Tell me about a time you handled a production incident."
+   ],
+   "expected": [
+    {
+     "text": "Tell me about a time you handled a production incident.",
+     "kind": "BEHAVIORAL",
+     "category": "BEHAVIORAL"
+    }
+   ]
+  },
+  {
+   "id": "behav-2",
+   "tags": [
+    "behavioral"
+   ],
+   "utterances": [
+    "describe a situation where you had a conflict with a teammate"
+   ],
+   "expected": [
+    {
+     "text": "Describe a situation where you had a conflict with a teammate.",
+     "kind": "BEHAVIORAL",
+     "category": "BEHAVIORAL"
+    }
+   ]
+  },
+  {
+   "id": "behav-3",
+   "tags": [
+    "behavioral"
+   ],
+   "utterances": [
+    "what is your biggest weakness"
+   ],
+   "expected": [
+    {
+     "text": "What is your biggest weakness?",
+     "kind": "BEHAVIORAL",
+     "category": "BEHAVIORAL"
+    }
+   ]
+  },
+  {
+   "id": "indirect-1",
+   "tags": [
+    "indirect"
+   ],
+   "utterances": [
+    "I want you to tell me how your application handles authentication."
+   ],
+   "expected": [
+    {
+     "text": "I want you to tell me how your application handles authentication.",
+     "kind": "INDIRECT",
+     "category": "GENERAL"
+    }
+   ]
+  },
+  {
+   "id": "indirect-2",
+   "tags": [
+    "indirect"
+   ],
+   "utterances": [
+    "I'd like to know how you would test a microservice"
+   ],
+   "expected": [
+    {
+     "text": "I'd like to know how you would test a microservice.",
+     "kind": "INDIRECT",
+     "category": "MICROSERVICES"
+    }
+   ]
+  },
+  {
+   "id": "codeswitch-1",
+   "tags": [
+    "code-switching"
+   ],
+   "utterances": [
+    "bhai explain karo what is dependency injection in spring boot"
+   ],
+   "expected": [
+    {
+     "text": "Bhai explain karo what is dependency injection in Spring Boot.",
+     "kind": "IMPERATIVE",
+     "category": "SPRING_BOOT"
+    }
+   ]
+  },
+  {
+   "id": "repeat-1",
+   "tags": [
+    "repeat"
+   ],
+   "utterances": [
+    "What is polymorphism?",
+    "Let me repeat that.",
+    "What is polymorphism?"
+   ],
+   "expected": [
+    {
+     "text": "What is polymorphism?",
+     "kind": "DIRECT",
+     "category": "JAVA"
+    },
+    {
+     "text": "What is polymorphism?",
+     "kind": "DIRECT",
+     "category": "JAVA",
+     "repeat": true
+    }
+   ]
+  },
+  {
+   "id": "ambig-1",
+   "tags": [
+    "ambiguous-term"
+   ],
+   "utterances": [
+    "How would you react if a teammate disagreed with you?"
+   ],
+   "expected": [
+    {
+     "text": "How would you react if a teammate disagreed with you?",
+     "kind": "DIRECT",
+     "category": "GENERAL"
+    }
+   ]
+  },
+  {
+   "id": "ambig-2",
+   "tags": [
+    "ambiguous-term"
+   ],
+   "utterances": [
+    "how does a hash map work"
+   ],
+   "expected": [
+    {
+     "text": "How does a hash map work?",
+     "kind": "DIRECT",
+     "category": "DATA_STRUCTURES"
+    }
+   ]
+  },
+  {
+   "id": "unknown-ctx-1",
+   "tags": [
+    "unknown-context"
+   ],
+   "utterances": [
+    "How is it different from the other one?"
+   ],
+   "expected": [
+    {
+     "text": "How is it different from the other one?",
+     "kind": "DIRECT",
+     "category": "GENERAL",
+     "needs_review": true
+    }
+   ]
+  },
+  {
+   "id": "stmt-1",
+   "tags": [
+    "non-question"
+   ],
+   "utterances": [
+    "Okay, that's great."
+   ],
+   "expected": []
+  },
+  {
+   "id": "stmt-2",
+   "tags": [
+    "non-question"
+   ],
+   "utterances": [
+    "I worked on a payments platform for three years."
+   ],
+   "expected": []
+  },
+  {
+   "id": "stmt-3",
+   "tags": [
+    "non-question"
+   ],
+   "utterances": [
+    "Thank you, that makes sense."
+   ],
+   "expected": []
+  },
+  {
+   "id": "stmt-4",
+   "tags": [
+    "non-question"
+   ],
+   "utterances": [
+    "So basically we used Kafka for the event pipeline and Redis for caching."
+   ],
+   "expected": []
+  },
+  {
+   "id": "stmt-5",
+   "tags": [
+    "non-question"
+   ],
+   "utterances": [
+    "Sounds good, let's move on."
+   ],
+   "expected": []
+  },
+  {
+   "id": "stmt-6",
+   "tags": [
+    "non-question"
+   ],
+   "utterances": [
+    "In my previous project I was responsible for the deployment pipeline."
+   ],
+   "expected": []
+  },
+  {
+   "id": "stmt-7",
+   "tags": [
+    "non-question"
+   ],
+   "utterances": [
+    "We have about ten minutes left."
+   ],
+   "expected": []
+  },
+  {
+   "id": "stmt-8",
+   "tags": [
+    "non-question"
+   ],
+   "utterances": [
+    "Great answer, I like how you explained the trade-offs."
+   ],
+   "expected": []
+  },
+  {
+   "id": "mixed-1",
+   "tags": [
+    "mixed"
+   ],
+   "utterances": [
+    "Okay, thanks for that.",
+    "Next question. What is a deadlock and how do you prevent it?"
+   ],
+   "expected": [
+    {
+     "text": "What is a deadlock and how do you prevent it?",
+     "kind": "MULTI_PART",
+     "category": "DATABASE",
+     "subquestions": 2
+    }
+   ]
+  },
+  {
+   "id": "mixed-2",
+   "tags": [
+    "mixed"
+   ],
+   "utterances": [
+    "I think we used Postgres.",
+    "Why did you choose PostgreSQL over MongoDB?"
+   ],
+   "expected": [
+    {
+     "text": "Why did you choose PostgreSQL over MongoDB?",
+     "kind": "DIRECT",
+     "category": "DATABASE"
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,1918 @@
+{
+ "version": 1,
+ "notes": "aliases are matched case-insensitively on word boundaries. 'context' lists words that must appear in the same utterance (or 'context_domains' that must be active in the session) before an ambiguous alias is replaced. Entries without 'context' are distinctive enough to replace anywhere.",
+ "terms": [
+  {
+   "canonical": "Java",
+   "aliases": [
+    "java"
+   ],
+   "domains": [
+    "JAVA"
+   ]
+  },
+  {
+   "canonical": "JVM",
+   "aliases": [
+    "jvm",
+    "j v m"
+   ],
+   "domains": [
+    "JAVA"
+   ]
+  },
+  {
+   "canonical": "JDK",
+   "aliases": [
+    "jdk",
+    "j d k"
+   ],
+   "domains": [
+    "JAVA"
+   ]
+  },
+  {
+   "canonical": "JRE",
+   "aliases": [
+    "jre",
+    "j r e"
+   ],
+   "domains": [
+    "JAVA"
+   ]
+  },
+  {
+   "canonical": "JPA",
+   "aliases": [
+    "jpa",
+    "j p a"
+   ],
+   "domains": [
+    "JAVA",
+    "SPRING_BOOT"
+   ]
+  },
+  {
+   "canonical": "Hibernate",
+   "aliases": [
+    "hibernate"
+   ],
+   "domains": [
+    "JAVA",
+    "SPRING_BOOT"
+   ],
+   "context": [
+    "orm",
+    "java",
+    "spring",
+    "entity",
+    "jpa",
+    "database",
+    "session",
+    "lazy",
+    "query",
+    "cache"
+   ],
+   "context_domains": [
+    "JAVA",
+    "SPRING_BOOT"
+   ]
+  },
+  {
+   "canonical": "Spring Boot",
+   "aliases": [
+    "spring boot",
+    "springboot",
+    "spring boots"
+   ],
+   "domains": [
+    "SPRING_BOOT"
+   ]
+  },
+  {
+   "canonical": "Spring MVC",
+   "aliases": [
+    "spring mvc",
+    "spring m v c"
+   ],
+   "domains": [
+    "SPRING_BOOT"
+   ]
+  },
+  {
+   "canonical": "Spring Security",
+   "aliases": [
+    "spring security"
+   ],
+   "domains": [
+    "SPRING_BOOT"
+   ]
+  },
+  {
+   "canonical": "Spring Data JPA",
+   "aliases": [
+    "spring data jpa",
+    "spring data j p a"
+   ],
+   "domains": [
+    "SPRING_BOOT"
+   ]
+  },
+  {
+   "canonical": "Spring",
+   "aliases": [
+    "spring"
+   ],
+   "domains": [
+    "SPRING_BOOT"
+   ],
+   "context": [
+    "bean",
+    "beans",
+    "boot",
+    "dependency",
+    "injection",
+    "framework",
+    "annotation",
+    "autowired",
+    "controller",
+    "java",
+    "application context",
+    "ioc",
+    "aop"
+   ],
+   "context_domains": [
+    "SPRING_BOOT",
+    "JAVA"
+   ]
+  },
+  {
+   "canonical": "Spring Bean",
+   "aliases": [
+    "spring bean"
+   ],
+   "domains": [
+    "SPRING_BOOT"
+   ]
+  },
+  {
+   "canonical": "@Autowired",
+   "aliases": [
+    "at autowired",
+    "at auto wired"
+   ],
+   "domains": [
+    "SPRING_BOOT"
+   ]
+  },
+  {
+   "canonical": "HashMap",
+   "aliases": [
+    "hash map",
+    "hashmap"
+   ],
+   "domains": [
+    "JAVA",
+    "DATA_STRUCTURES"
+   ],
+   "context": [
+    "java",
+    "collection",
+    "collections",
+    "concurrent",
+    "treemap",
+    "tree map",
+    "hashtable",
+    "hash table",
+    "linkedhashmap",
+    "put",
+    "get",
+    "bucket",
+    "buckets",
+    "equals",
+    "hashcode",
+    "thread safe",
+    "synchronized"
+   ],
+   "context_domains": [
+    "JAVA"
+   ]
+  },
+  {
+   "canonical": "ConcurrentHashMap",
+   "aliases": [
+    "concurrent hash map",
+    "concurrent hashmap",
+    "concurrenthashmap"
+   ],
+   "domains": [
+    "JAVA"
+   ]
+  },
+  {
+   "canonical": "LinkedHashMap",
+   "aliases": [
+    "linked hash map",
+    "linked hashmap"
+   ],
+   "domains": [
+    "JAVA"
+   ]
+  },
+  {
+   "canonical": "HashSet",
+   "aliases": [
+    "hash set",
+    "hashset"
+   ],
+   "domains": [
+    "JAVA",
+    "DATA_STRUCTURES"
+   ],
+   "context": [
+    "java",
+    "collection",
+    "collections",
+    "treeset",
+    "tree set",
+    "hashmap",
+    "hash map",
+    "set interface",
+    "duplicates"
+   ],
+   "context_domains": [
+    "JAVA"
+   ]
+  },
+  {
+   "canonical": "TreeMap",
+   "aliases": [
+    "tree map",
+    "treemap"
+   ],
+   "domains": [
+    "JAVA"
+   ],
+   "context": [
+    "java",
+    "collection",
+    "collections",
+    "hashmap",
+    "hash map",
+    "sorted",
+    "red black",
+    "comparator"
+   ],
+   "context_domains": [
+    "JAVA"
+   ]
+  },
+  {
+   "canonical": "TreeSet",
+   "aliases": [
+    "tree set",
+    "treeset"
+   ],
+   "domains": [
+    "JAVA"
+   ],
+   "context": [
+    "java",
+    "collection",
+    "collections",
+    "hashset",
+    "hash set",
+    "sorted",
+    "comparator"
+   ],
+   "context_domains": [
+    "JAVA"
+   ]
+  },
+  {
+   "canonical": "ArrayList",
+   "aliases": [
+    "array list",
+    "arraylist"
+   ],
+   "domains": [
+    "JAVA"
+   ],
+   "context": [
+    "java",
+    "linkedlist",
+    "linked list",
+    "collection",
+    "collections",
+    "vector",
+    "list interface"
+   ],
+   "context_domains": [
+    "JAVA"
+   ]
+  },
+  {
+   "canonical": "LinkedList",
+   "aliases": [
+    "linkedlist"
+   ],
+   "domains": [
+    "JAVA"
+   ]
+  },
+  {
+   "canonical": "StringBuilder",
+   "aliases": [
+    "string builder",
+    "stringbuilder"
+   ],
+   "domains": [
+    "JAVA",
+    "CSHARP"
+   ],
+   "context": [
+    "java",
+    "string buffer",
+    "stringbuffer",
+    "immutable",
+    "c#",
+    "mutable",
+    "append"
+   ],
+   "context_domains": [
+    "JAVA",
+    "CSHARP"
+   ]
+  },
+  {
+   "canonical": "StringBuffer",
+   "aliases": [
+    "string buffer",
+    "stringbuffer"
+   ],
+   "domains": [
+    "JAVA"
+   ],
+   "context": [
+    "java",
+    "string builder",
+    "stringbuilder",
+    "thread safe",
+    "synchronized",
+    "immutable",
+    "mutable"
+   ],
+   "context_domains": [
+    "JAVA"
+   ]
+  },
+  {
+   "canonical": "CompletableFuture",
+   "aliases": [
+    "completable future",
+    "completablefuture"
+   ],
+   "domains": [
+    "JAVA"
+   ]
+  },
+  {
+   "canonical": "Stream API",
+   "aliases": [
+    "stream api",
+    "streams api",
+    "stream a p i"
+   ],
+   "domains": [
+    "JAVA"
+   ]
+  },
+  {
+   "canonical": "JavaScript",
+   "aliases": [
+    "javascript",
+    "java script",
+    "js"
+   ],
+   "domains": [
+    "JAVASCRIPT"
+   ]
+  },
+  {
+   "canonical": "TypeScript",
+   "aliases": [
+    "typescript",
+    "type script",
+    "ts"
+   ],
+   "domains": [
+    "TYPESCRIPT"
+   ],
+   "context": [
+    "javascript",
+    "type",
+    "types",
+    "interface",
+    "generic",
+    "generics",
+    "angular",
+    "react",
+    "compile",
+    "compiler",
+    "typed",
+    "node"
+   ],
+   "context_domains": [
+    "TYPESCRIPT",
+    "JAVASCRIPT",
+    "REACT"
+   ]
+  },
+  {
+   "canonical": "Node.js",
+   "aliases": [
+    "node js",
+    "node j s",
+    "nodejs",
+    "node.js",
+    "node dot js"
+   ],
+   "domains": [
+    "NODEJS",
+    "JAVASCRIPT"
+   ]
+  },
+  {
+   "canonical": "Express.js",
+   "aliases": [
+    "express js",
+    "express j s",
+    "expressjs",
+    "express.js"
+   ],
+   "domains": [
+    "NODEJS"
+   ]
+  },
+  {
+   "canonical": "NestJS",
+   "aliases": [
+    "nest js",
+    "nestjs",
+    "nest j s"
+   ],
+   "domains": [
+    "NODEJS"
+   ]
+  },
+  {
+   "canonical": "Next.js",
+   "aliases": [
+    "next js",
+    "next j s",
+    "nextjs",
+    "next.js"
+   ],
+   "domains": [
+    "REACT"
+   ]
+  },
+  {
+   "canonical": "React",
+   "aliases": [
+    "react",
+    "react js",
+    "reactjs",
+    "react.js"
+   ],
+   "domains": [
+    "REACT"
+   ],
+   "context": [
+    "component",
+    "components",
+    "hook",
+    "hooks",
+    "state",
+    "props",
+    "jsx",
+    "frontend",
+    "front end",
+    "javascript",
+    "redux",
+    "render",
+    "rendering",
+    "virtual dom",
+    "use effect",
+    "use state",
+    "useeffect",
+    "usestate",
+    "library",
+    "next js",
+    "angular",
+    "vue",
+    "native"
+   ],
+   "context_domains": [
+    "REACT",
+    "JAVASCRIPT",
+    "TYPESCRIPT"
+   ]
+  },
+  {
+   "canonical": "React Native",
+   "aliases": [
+    "react native"
+   ],
+   "domains": [
+    "REACT"
+   ]
+  },
+  {
+   "canonical": "useEffect",
+   "aliases": [
+    "use effect",
+    "useeffect"
+   ],
+   "domains": [
+    "REACT"
+   ],
+   "context": [
+    "react",
+    "hook",
+    "hooks",
+    "component",
+    "state",
+    "render",
+    "dependency array",
+    "use state",
+    "usestate"
+   ],
+   "context_domains": [
+    "REACT"
+   ]
+  },
+  {
+   "canonical": "useState",
+   "aliases": [
+    "use state",
+    "usestate"
+   ],
+   "domains": [
+    "REACT"
+   ],
+   "context": [
+    "react",
+    "hook",
+    "hooks",
+    "component",
+    "render",
+    "use effect",
+    "useeffect"
+   ],
+   "context_domains": [
+    "REACT"
+   ]
+  },
+  {
+   "canonical": "useMemo",
+   "aliases": [
+    "use memo",
+    "usememo"
+   ],
+   "domains": [
+    "REACT"
+   ],
+   "context": [
+    "react",
+    "hook",
+    "hooks",
+    "memoization",
+    "use callback",
+    "usecallback",
+    "render"
+   ],
+   "context_domains": [
+    "REACT"
+   ]
+  },
+  {
+   "canonical": "useCallback",
+   "aliases": [
+    "use callback",
+    "usecallback"
+   ],
+   "domains": [
+    "REACT"
+   ],
+   "context": [
+    "react",
+    "hook",
+    "hooks",
+    "memoization",
+    "use memo",
+    "usememo",
+    "render"
+   ],
+   "context_domains": [
+    "REACT"
+   ]
+  },
+  {
+   "canonical": "Redux",
+   "aliases": [
+    "redux",
+    "re dux"
+   ],
+   "domains": [
+    "REACT"
+   ]
+  },
+  {
+   "canonical": "virtual DOM",
+   "aliases": [
+    "virtual dom",
+    "virtual d o m"
+   ],
+   "domains": [
+    "REACT"
+   ]
+  },
+  {
+   "canonical": "DOM",
+   "aliases": [
+    "dom",
+    "d o m"
+   ],
+   "domains": [
+    "JAVASCRIPT"
+   ],
+   "context": [
+    "javascript",
+    "html",
+    "browser",
+    "element",
+    "elements",
+    "react",
+    "virtual",
+    "manipulation",
+    "event",
+    "node",
+    "tree"
+   ],
+   "context_domains": [
+    "JAVASCRIPT",
+    "REACT"
+   ]
+  },
+  {
+   "canonical": "Python",
+   "aliases": [
+    "python"
+   ],
+   "domains": [
+    "PYTHON"
+   ]
+  },
+  {
+   "canonical": "Django",
+   "aliases": [
+    "django",
+    "jango"
+   ],
+   "domains": [
+    "PYTHON"
+   ],
+   "context": [
+    "python",
+    "orm",
+    "framework",
+    "web",
+    "model",
+    "models",
+    "flask",
+    "view",
+    "views",
+    "middleware"
+   ],
+   "context_domains": [
+    "PYTHON"
+   ]
+  },
+  {
+   "canonical": "Flask",
+   "aliases": [
+    "flask"
+   ],
+   "domains": [
+    "PYTHON"
+   ],
+   "context": [
+    "python",
+    "django",
+    "framework",
+    "web",
+    "api",
+    "route",
+    "routes",
+    "fastapi",
+    "fast api"
+   ],
+   "context_domains": [
+    "PYTHON"
+   ]
+  },
+  {
+   "canonical": "FastAPI",
+   "aliases": [
+    "fast api",
+    "fastapi",
+    "fast a p i"
+   ],
+   "domains": [
+    "PYTHON"
+   ]
+  },
+  {
+   "canonical": "NumPy",
+   "aliases": [
+    "numpy",
+    "num py",
+    "num pie"
+   ],
+   "domains": [
+    "PYTHON"
+   ]
+  },
+  {
+   "canonical": "pandas",
+   "aliases": [
+    "pandas"
+   ],
+   "domains": [
+    "PYTHON"
+   ],
+   "context": [
+    "python",
+    "dataframe",
+    "data frame",
+    "numpy",
+    "series",
+    "csv",
+    "data analysis"
+   ],
+   "context_domains": [
+    "PYTHON"
+   ]
+  },
+  {
+   "canonical": "GIL",
+   "aliases": [
+    "gil",
+    "g i l",
+    "global interpreter lock"
+   ],
+   "domains": [
+    "PYTHON"
+   ]
+  },
+  {
+   "canonical": "C#",
+   "aliases": [
+    "c sharp",
+    "c-sharp",
+    "see sharp"
+   ],
+   "domains": [
+    "CSHARP"
+   ]
+  },
+  {
+   "canonical": ".NET",
+   "aliases": [
+    "dot net",
+    "dotnet",
+    ".net"
+   ],
+   "domains": [
+    "CSHARP"
+   ]
+  },
+  {
+   "canonical": "ASP.NET Core",
+   "aliases": [
+    "asp dot net core",
+    "asp.net core",
+    "a s p dot net core",
+    "asp net core"
+   ],
+   "domains": [
+    "CSHARP"
+   ]
+  },
+  {
+   "canonical": "LINQ",
+   "aliases": [
+    "linq",
+    "link query"
+   ],
+   "domains": [
+    "CSHARP"
+   ]
+  },
+  {
+   "canonical": "C++",
+   "aliases": [
+    "c plus plus",
+    "c++",
+    "cpp",
+    "c p p",
+    "see plus plus"
+   ],
+   "domains": [
+    "CPP"
+   ]
+  },
+  {
+   "canonical": "STL",
+   "aliases": [
+    "stl",
+    "s t l"
+   ],
+   "domains": [
+    "CPP"
+   ]
+  },
+  {
+   "canonical": "SQL",
+   "aliases": [
+    "sql",
+    "s q l"
+   ],
+   "domains": [
+    "SQL"
+   ]
+  },
+  {
+   "canonical": "SQL",
+   "aliases": [
+    "sequel"
+   ],
+   "domains": [
+    "SQL"
+   ],
+   "context": [
+    "query",
+    "queries",
+    "database",
+    "table",
+    "tables",
+    "join",
+    "joins",
+    "select",
+    "index",
+    "server",
+    "db"
+   ],
+   "context_domains": [
+    "SQL",
+    "DATABASE"
+   ]
+  },
+  {
+   "canonical": "NoSQL",
+   "aliases": [
+    "no sql",
+    "nosql",
+    "no sequel",
+    "n o s q l"
+   ],
+   "domains": [
+    "DATABASE"
+   ]
+  },
+  {
+   "canonical": "PostgreSQL",
+   "aliases": [
+    "postgresql",
+    "postgres",
+    "postgre sql",
+    "postgres sql",
+    "post gres",
+    "post gress",
+    "post grey sql",
+    "post gray sql",
+    "post grass",
+    "postgre",
+    "post gre sql"
+   ],
+   "domains": [
+    "SQL",
+    "DATABASE"
+   ],
+   "context": [
+    "database",
+    "db",
+    "sql",
+    "query",
+    "queries",
+    "table",
+    "tables",
+    "index",
+    "indexes",
+    "mysql",
+    "my sql",
+    "relational",
+    "transaction",
+    "transactions",
+    "server",
+    "replication",
+    "vacuum",
+    "schema",
+    "mongodb",
+    "data"
+   ],
+   "context_domains": [
+    "SQL",
+    "DATABASE"
+   ]
+  },
+  {
+   "canonical": "MySQL",
+   "aliases": [
+    "mysql",
+    "my sql",
+    "my sequel",
+    "my s q l"
+   ],
+   "domains": [
+    "SQL",
+    "DATABASE"
+   ]
+  },
+  {
+   "canonical": "SQL Server",
+   "aliases": [
+    "sql server",
+    "sequel server",
+    "ms sql"
+   ],
+   "domains": [
+    "SQL",
+    "DATABASE"
+   ]
+  },
+  {
+   "canonical": "PL/SQL",
+   "aliases": [
+    "pl sql",
+    "p l sql",
+    "pl/sql",
+    "pl sequel"
+   ],
+   "domains": [
+    "SQL"
+   ]
+  },
+  {
+   "canonical": "MongoDB",
+   "aliases": [
+    "mongodb",
+    "mongo db",
+    "mongo d b",
+    "mongo"
+   ],
+   "domains": [
+    "DATABASE"
+   ]
+  },
+  {
+   "canonical": "Redis",
+   "aliases": [
+    "redis"
+   ],
+   "domains": [
+    "DATABASE",
+    "SYSTEM_DESIGN"
+   ]
+  },
+  {
+   "canonical": "Redis",
+   "aliases": [
+    "reddis",
+    "red is",
+    "radis"
+   ],
+   "domains": [
+    "DATABASE",
+    "SYSTEM_DESIGN"
+   ],
+   "context": [
+    "cache",
+    "caching",
+    "database",
+    "key value",
+    "in-memory",
+    "in memory",
+    "memcached",
+    "session",
+    "pub sub",
+    "data",
+    "store",
+    "db"
+   ],
+   "context_domains": [
+    "DATABASE",
+    "SYSTEM_DESIGN",
+    "MICROSERVICES"
+   ]
+  },
+  {
+   "canonical": "Elasticsearch",
+   "aliases": [
+    "elasticsearch",
+    "elastic search"
+   ],
+   "domains": [
+    "DATABASE"
+   ]
+  },
+  {
+   "canonical": "Cassandra",
+   "aliases": [
+    "cassandra"
+   ],
+   "domains": [
+    "DATABASE"
+   ],
+   "context": [
+    "database",
+    "nosql",
+    "no sql",
+    "column",
+    "distributed",
+    "mongodb",
+    "data",
+    "replication",
+    "partition"
+   ],
+   "context_domains": [
+    "DATABASE",
+    "SYSTEM_DESIGN"
+   ]
+  },
+  {
+   "canonical": "ACID",
+   "aliases": [
+    "acid",
+    "a c i d"
+   ],
+   "domains": [
+    "DATABASE"
+   ],
+   "context": [
+    "transaction",
+    "transactions",
+    "database",
+    "properties",
+    "property",
+    "base",
+    "sql",
+    "db",
+    "consistency"
+   ],
+   "context_domains": [
+    "DATABASE",
+    "SQL"
+   ]
+  },
+  {
+   "canonical": "CAP theorem",
+   "aliases": [
+    "cap theorem",
+    "c a p theorem",
+    "cap theory"
+   ],
+   "domains": [
+    "SYSTEM_DESIGN"
+   ]
+  },
+  {
+   "canonical": "REST API",
+   "aliases": [
+    "rest api",
+    "rest a p i",
+    "restful api",
+    "rest apis"
+   ],
+   "domains": [
+    "SYSTEM_DESIGN",
+    "MICROSERVICES"
+   ]
+  },
+  {
+   "canonical": "REST",
+   "aliases": [
+    "rest"
+   ],
+   "domains": [
+    "SYSTEM_DESIGN"
+   ],
+   "context": [
+    "api",
+    "apis",
+    "graphql",
+    "graph ql",
+    "soap",
+    "grpc",
+    "http",
+    "endpoint",
+    "endpoints",
+    "restful",
+    "web service",
+    "web services"
+   ],
+   "context_domains": []
+  },
+  {
+   "canonical": "GraphQL",
+   "aliases": [
+    "graphql",
+    "graph ql",
+    "graph q l",
+    "graph quel"
+   ],
+   "domains": [
+    "SYSTEM_DESIGN"
+   ]
+  },
+  {
+   "canonical": "gRPC",
+   "aliases": [
+    "grpc",
+    "g rpc",
+    "g r p c"
+   ],
+   "domains": [
+    "MICROSERVICES"
+   ]
+  },
+  {
+   "canonical": "SOAP",
+   "aliases": [
+    "soap"
+   ],
+   "domains": [
+    "SYSTEM_DESIGN"
+   ],
+   "context": [
+    "rest",
+    "api",
+    "web service",
+    "web services",
+    "xml",
+    "wsdl",
+    "protocol"
+   ],
+   "context_domains": []
+  },
+  {
+   "canonical": "JSON",
+   "aliases": [
+    "json",
+    "j son",
+    "j s o n"
+   ],
+   "domains": [
+    "GENERAL"
+   ]
+  },
+  {
+   "canonical": "JSON",
+   "aliases": [
+    "jason"
+   ],
+   "domains": [
+    "GENERAL"
+   ],
+   "context": [
+    "api",
+    "parse",
+    "parsing",
+    "object",
+    "format",
+    "serialize",
+    "serialization",
+    "deserialize",
+    "rest",
+    "payload",
+    "string",
+    "xml",
+    "response",
+    "request",
+    "file",
+    "data",
+    "schema"
+   ],
+   "context_domains": []
+  },
+  {
+   "canonical": "XML",
+   "aliases": [
+    "xml",
+    "x m l"
+   ],
+   "domains": [
+    "GENERAL"
+   ]
+  },
+  {
+   "canonical": "YAML",
+   "aliases": [
+    "yaml",
+    "yml",
+    "y a m l"
+   ],
+   "domains": [
+    "DEVOPS"
+   ]
+  },
+  {
+   "canonical": "HTTP",
+   "aliases": [
+    "http",
+    "h t t p"
+   ],
+   "domains": [
+    "SYSTEM_DESIGN"
+   ]
+  },
+  {
+   "canonical": "HTTPS",
+   "aliases": [
+    "https",
+    "h t t p s"
+   ],
+   "domains": [
+    "SYSTEM_DESIGN"
+   ]
+  },
+  {
+   "canonical": "TCP",
+   "aliases": [
+    "tcp",
+    "t c p"
+   ],
+   "domains": [
+    "SYSTEM_DESIGN"
+   ]
+  },
+  {
+   "canonical": "UDP",
+   "aliases": [
+    "udp",
+    "u d p"
+   ],
+   "domains": [
+    "SYSTEM_DESIGN"
+   ]
+  },
+  {
+   "canonical": "DNS",
+   "aliases": [
+    "dns",
+    "d n s"
+   ],
+   "domains": [
+    "SYSTEM_DESIGN"
+   ]
+  },
+  {
+   "canonical": "CDN",
+   "aliases": [
+    "cdn",
+    "c d n"
+   ],
+   "domains": [
+    "SYSTEM_DESIGN"
+   ]
+  },
+  {
+   "canonical": "WebSocket",
+   "aliases": [
+    "websocket",
+    "web socket"
+   ],
+   "domains": [
+    "SYSTEM_DESIGN"
+   ]
+  },
+  {
+   "canonical": "WebSockets",
+   "aliases": [
+    "websockets",
+    "web sockets"
+   ],
+   "domains": [
+    "SYSTEM_DESIGN"
+   ]
+  },
+  {
+   "canonical": "HTML",
+   "aliases": [
+    "html",
+    "h t m l"
+   ],
+   "domains": [
+    "JAVASCRIPT"
+   ]
+  },
+  {
+   "canonical": "CSS",
+   "aliases": [
+    "css",
+    "c s s"
+   ],
+   "domains": [
+    "JAVASCRIPT"
+   ]
+  },
+  {
+   "canonical": "JWT",
+   "aliases": [
+    "jwt",
+    "j w t",
+    "jot token"
+   ],
+   "domains": [
+    "SYSTEM_DESIGN"
+   ]
+  },
+  {
+   "canonical": "OAuth",
+   "aliases": [
+    "oauth",
+    "o auth",
+    "o off"
+   ],
+   "domains": [
+    "SYSTEM_DESIGN"
+   ]
+  },
+  {
+   "canonical": "OAuth 2.0",
+   "aliases": [
+    "oauth two",
+    "oauth 2",
+    "o auth two",
+    "o auth 2",
+    "oauth 2.0"
+   ],
+   "domains": [
+    "SYSTEM_DESIGN"
+   ]
+  },
+  {
+   "canonical": "SSO",
+   "aliases": [
+    "sso",
+    "s s o",
+    "single sign on"
+   ],
+   "domains": [
+    "SYSTEM_DESIGN"
+   ]
+  },
+  {
+   "canonical": "microservices",
+   "aliases": [
+    "micro services",
+    "microservices",
+    "micro-services"
+   ],
+   "domains": [
+    "MICROSERVICES"
+   ]
+  },
+  {
+   "canonical": "microservice",
+   "aliases": [
+    "micro service",
+    "micro-service",
+    "microservice"
+   ],
+   "domains": [
+    "MICROSERVICES"
+   ]
+  },
+  {
+   "canonical": "API gateway",
+   "aliases": [
+    "api gateway",
+    "a p i gateway"
+   ],
+   "domains": [
+    "MICROSERVICES"
+   ]
+  },
+  {
+   "canonical": "API",
+   "aliases": [
+    "api",
+    "a p i"
+   ],
+   "domains": [
+    "GENERAL"
+   ]
+  },
+  {
+   "canonical": "Kafka",
+   "aliases": [
+    "kafka",
+    "apache kafka"
+   ],
+   "domains": [
+    "MICROSERVICES"
+   ]
+  },
+  {
+   "canonical": "Kafka",
+   "aliases": [
+    "cafka",
+    "kafca"
+   ],
+   "domains": [
+    "MICROSERVICES"
+   ],
+   "context": [
+    "message",
+    "messages",
+    "queue",
+    "queues",
+    "stream",
+    "streaming",
+    "broker",
+    "brokers",
+    "topic",
+    "topics",
+    "consumer",
+    "consumers",
+    "producer",
+    "producers",
+    "event",
+    "events",
+    "partition",
+    "partitions",
+    "rabbitmq",
+    "rabbit mq",
+    "apache"
+   ],
+   "context_domains": [
+    "MICROSERVICES",
+    "SYSTEM_DESIGN"
+   ]
+  },
+  {
+   "canonical": "RabbitMQ",
+   "aliases": [
+    "rabbitmq",
+    "rabbit mq",
+    "rabbit m q"
+   ],
+   "domains": [
+    "MICROSERVICES"
+   ]
+  },
+  {
+   "canonical": "saga pattern",
+   "aliases": [
+    "saga pattern"
+   ],
+   "domains": [
+    "MICROSERVICES"
+   ]
+  },
+  {
+   "canonical": "circuit breaker",
+   "aliases": [
+    "circuit breaker"
+   ],
+   "domains": [
+    "MICROSERVICES"
+   ]
+  },
+  {
+   "canonical": "Docker",
+   "aliases": [
+    "docker",
+    "doker"
+   ],
+   "domains": [
+    "DEVOPS"
+   ]
+  },
+  {
+   "canonical": "Dockerfile",
+   "aliases": [
+    "docker file",
+    "dockerfile"
+   ],
+   "domains": [
+    "DEVOPS"
+   ]
+  },
+  {
+   "canonical": "Docker Compose",
+   "aliases": [
+    "docker compose",
+    "docker-compose"
+   ],
+   "domains": [
+    "DEVOPS"
+   ]
+  },
+  {
+   "canonical": "Kubernetes",
+   "aliases": [
+    "kubernetes",
+    "kubernetis",
+    "kubernates",
+    "cubernetes",
+    "k8s",
+    "k eights",
+    "kuber netes",
+    "kube"
+   ],
+   "domains": [
+    "DEVOPS"
+   ]
+  },
+  {
+   "canonical": "Helm",
+   "aliases": [
+    "helm"
+   ],
+   "domains": [
+    "DEVOPS"
+   ],
+   "context": [
+    "kubernetes",
+    "k8s",
+    "chart",
+    "charts",
+    "deploy",
+    "deployment"
+   ],
+   "context_domains": [
+    "DEVOPS"
+   ]
+  },
+  {
+   "canonical": "CI/CD",
+   "aliases": [
+    "ci cd",
+    "ci/cd",
+    "c i c d",
+    "cicd",
+    "ci-cd"
+   ],
+   "domains": [
+    "DEVOPS"
+   ]
+  },
+  {
+   "canonical": "Jenkins",
+   "aliases": [
+    "jenkins"
+   ],
+   "domains": [
+    "DEVOPS"
+   ]
+  },
+  {
+   "canonical": "GitHub Actions",
+   "aliases": [
+    "github actions",
+    "git hub actions"
+   ],
+   "domains": [
+    "DEVOPS"
+   ]
+  },
+  {
+   "canonical": "GitHub",
+   "aliases": [
+    "github",
+    "git hub"
+   ],
+   "domains": [
+    "DEVOPS"
+   ]
+  },
+  {
+   "canonical": "Git",
+   "aliases": [
+    "git"
+   ],
+   "domains": [
+    "DEVOPS"
+   ]
+  },
+  {
+   "canonical": "Terraform",
+   "aliases": [
+    "terraform",
+    "terra form"
+   ],
+   "domains": [
+    "DEVOPS",
+    "CLOUD"
+   ]
+  },
+  {
+   "canonical": "AWS",
+   "aliases": [
+    "aws",
+    "a w s",
+    "amazon web services"
+   ],
+   "domains": [
+    "CLOUD"
+   ]
+  },
+  {
+   "canonical": "EC2",
+   "aliases": [
+    "ec2",
+    "e c 2",
+    "ec two",
+    "e c two"
+   ],
+   "domains": [
+    "CLOUD"
+   ]
+  },
+  {
+   "canonical": "S3",
+   "aliases": [
+    "s3",
+    "s three",
+    "s 3"
+   ],
+   "domains": [
+    "CLOUD"
+   ],
+   "context": [
+    "aws",
+    "bucket",
+    "buckets",
+    "storage",
+    "amazon",
+    "object",
+    "upload",
+    "cloud"
+   ],
+   "context_domains": [
+    "CLOUD"
+   ]
+  },
+  {
+   "canonical": "AWS Lambda",
+   "aliases": [
+    "aws lambda",
+    "a w s lambda"
+   ],
+   "domains": [
+    "CLOUD"
+   ]
+  },
+  {
+   "canonical": "Lambda",
+   "aliases": [
+    "lambda"
+   ],
+   "domains": [
+    "CLOUD"
+   ],
+   "context": [
+    "aws",
+    "serverless",
+    "function",
+    "functions",
+    "cloud",
+    "ec2"
+   ],
+   "context_domains": [
+    "CLOUD"
+   ]
+  },
+  {
+   "canonical": "DynamoDB",
+   "aliases": [
+    "dynamodb",
+    "dynamo db",
+    "dynamo d b"
+   ],
+   "domains": [
+    "CLOUD",
+    "DATABASE"
+   ]
+  },
+  {
+   "canonical": "Azure",
+   "aliases": [
+    "azure",
+    "asure",
+    "azur"
+   ],
+   "domains": [
+    "CLOUD"
+   ]
+  },
+  {
+   "canonical": "GCP",
+   "aliases": [
+    "gcp",
+    "g c p",
+    "google cloud platform"
+   ],
+   "domains": [
+    "CLOUD"
+   ]
+  },
+  {
+   "canonical": "OOP",
+   "aliases": [
+    "oop",
+    "o o p",
+    "oops concepts",
+    "oops"
+   ],
+   "domains": [
+    "GENERAL"
+   ],
+   "context": [
+    "concept",
+    "concepts",
+    "object",
+    "oriented",
+    "principles",
+    "pillars",
+    "inheritance",
+    "polymorphism",
+    "encapsulation",
+    "abstraction",
+    "java",
+    "class"
+   ],
+   "context_domains": [
+    "JAVA",
+    "CSHARP",
+    "CPP",
+    "PYTHON"
+   ]
+  },
+  {
+   "canonical": "SOLID principles",
+   "aliases": [
+    "solid principles",
+    "solid principle"
+   ],
+   "domains": [
+    "GENERAL"
+   ]
+  },
+  {
+   "canonical": "LRU cache",
+   "aliases": [
+    "lru cache",
+    "l r u cache",
+    "least recently used cache"
+   ],
+   "domains": [
+    "DATA_STRUCTURES"
+   ]
+  },
+  {
+   "canonical": "LRU",
+   "aliases": [
+    "lru",
+    "l r u"
+   ],
+   "domains": [
+    "DATA_STRUCTURES"
+   ]
+  },
+  {
+   "canonical": "BFS",
+   "aliases": [
+    "bfs",
+    "b f s"
+   ],
+   "domains": [
+    "ALGORITHMS"
+   ]
+  },
+  {
+   "canonical": "DFS",
+   "aliases": [
+    "dfs",
+    "d f s"
+   ],
+   "domains": [
+    "ALGORITHMS"
+   ]
+  },
+  {
+   "canonical": "BST",
+   "aliases": [
+    "bst",
+    "b s t"
+   ],
+   "domains": [
+    "DATA_STRUCTURES"
+   ]
+  },
+  {
+   "canonical": "Big O",
+   "aliases": [
+    "big o",
+    "big-o",
+    "big oh"
+   ],
+   "domains": [
+    "ALGORITHMS"
+   ]
+  },
+  {
+   "canonical": "Dijkstra's algorithm",
+   "aliases": [
+    "dijkstra's algorithm",
+    "dijkstras algorithm",
+    "dijkstra algorithm",
+    "dykstra algorithm",
+    "dikstra algorithm"
+   ],
+   "domains": [
+    "ALGORITHMS"
+   ]
+  },
+  {
+   "canonical": "garbage collection",
+   "aliases": [
+    "garbage collection"
+   ],
+   "domains": [
+    "JAVA"
+   ]
+  },
+  {
+   "canonical": "dependency injection",
+   "aliases": [
+    "dependency injection"
+   ],
+   "domains": [
+    "SPRING_BOOT"
+   ]
+  },
+  {
+   "canonical": "inversion of control",
+   "aliases": [
+    "inversion of control"
+   ],
+   "domains": [
+    "SPRING_BOOT"
+   ]
+  },
+  {
+   "canonical": "IoC",
+   "aliases": [
+    "ioc",
+    "i o c"
+   ],
+   "domains": [
+    "SPRING_BOOT"
+   ]
+  },
+  {
+   "canonical": "AOP",
+   "aliases": [
+    "aop",
+    "a o p"
+   ],
+   "domains": [
+    "SPRING_BOOT"
+   ]
+  },
+  {
+   "canonical": "URL",
+   "aliases": [
+    "url",
+    "u r l"
+   ],
+   "domains": [
+    "GENERAL"
+   ]
+  }
+ ]
+}

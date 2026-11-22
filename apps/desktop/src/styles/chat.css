@@ -1,0 +1,397 @@
+/*
+ * The built-in chat: Markdown answers, code highlighting, bubbles and motion.
+ * Colors come from the design tokens; the syntax palette is the only addition.
+ */
+:root,
+:root[data-theme="dark"] {
+  --zhu-code-bg: #11141b;
+  --zhu-syntax-keyword: #c4a7f7;
+  --zhu-syntax-string: #9fd8a1;
+  --zhu-syntax-number: #f2b880;
+  --zhu-syntax-title: #8ec5f7;
+  --zhu-syntax-comment: #6e7789;
+  --zhu-syntax-meta: #e6ad55;
+  --zhu-bubble-user: linear-gradient(135deg, #8b7cf6 0%, #6f8cf6 100%);
+  --zhu-bubble-user-fg: #0b0d12;
+}
+:root[data-theme="light"] {
+  --zhu-code-bg: #f7f8fb;
+  --zhu-syntax-keyword: #6d3fc4;
+  --zhu-syntax-string: #1f7a4d;
+  --zhu-syntax-number: #a8560c;
+  --zhu-syntax-title: #1d63b8;
+  --zhu-syntax-comment: #7b8494;
+  --zhu-syntax-meta: #8a5a0a;
+  --zhu-bubble-user: linear-gradient(135deg, #6658d3 0%, #4f6fd9 100%);
+  --zhu-bubble-user-fg: #ffffff;
+}
+
+/* ------------------------------------------------------------------ Markdown */
+.zhu-md {
+  font-size: var(--zhu-text-body);
+  line-height: 1.65;
+  color: var(--zhu-text);
+  overflow-wrap: anywhere;
+}
+.zhu-md > :first-child {
+  margin-top: 0;
+}
+.zhu-md > :last-child {
+  margin-bottom: 0;
+}
+.zhu-md p,
+.zhu-md ul,
+.zhu-md ol,
+.zhu-md blockquote,
+.zhu-md .zhu-md-code,
+.zhu-md .zhu-md-table,
+.zhu-md .katex-display {
+  margin: 0 0 0.85em;
+}
+.zhu-md h1,
+.zhu-md h2,
+.zhu-md h3,
+.zhu-md h4 {
+  font-family: var(--zhu-font-display);
+  font-weight: 650;
+  line-height: 1.3;
+  margin: 1.35em 0 0.5em;
+}
+.zhu-md h1 {
+  font-size: 1.4em;
+}
+.zhu-md h2 {
+  font-size: 1.22em;
+}
+.zhu-md h3 {
+  font-size: 1.08em;
+}
+.zhu-md h4 {
+  font-size: 1em;
+}
+.zhu-md ul,
+.zhu-md ol {
+  padding-left: 1.45em;
+}
+.zhu-md ul {
+  list-style: disc;
+}
+.zhu-md ol {
+  list-style: decimal;
+}
+.zhu-md li {
+  margin: 0.2em 0;
+}
+.zhu-md li > ul,
+.zhu-md li > ol {
+  margin: 0.2em 0 0.3em;
+}
+.zhu-md li::marker {
+  color: var(--zhu-text-3);
+}
+.zhu-md ul.contains-task-list {
+  list-style: none;
+  padding-left: 0.2em;
+}
+.zhu-md input[type="checkbox"] {
+  margin-right: 0.5em;
+  accent-color: var(--zhu-accent);
+}
+.zhu-md a {
+  color: var(--zhu-accent);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--zhu-accent) 40%, transparent);
+  text-underline-offset: 3px;
+  cursor: var(--zhu-cursor-action, pointer);
+}
+.zhu-md a:hover {
+  text-decoration-color: var(--zhu-accent);
+}
+.zhu-md strong {
+  font-weight: 650;
+}
+.zhu-md blockquote {
+  border-left: 3px solid var(--zhu-border);
+  padding: 0.1em 0 0.1em 0.9em;
+  color: var(--zhu-text-2);
+}
+.zhu-md hr {
+  border: 0;
+  border-top: 1px solid var(--zhu-border-subtle);
+  margin: 1.2em 0;
+}
+.zhu-md :not(pre) > code {
+  font-family: var(--zhu-font-mono);
+  font-size: 0.88em;
+  background: var(--zhu-surface-2);
+  border: 1px solid var(--zhu-border-subtle);
+  border-radius: var(--zhu-radius-xs);
+  padding: 0.08em 0.36em;
+}
+.zhu-md-code {
+  border: 1px solid var(--zhu-border-subtle);
+  border-radius: var(--zhu-radius-md);
+  background: var(--zhu-code-bg);
+  overflow: hidden;
+}
+.zhu-md-code-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 6px 5px 12px;
+  border-bottom: 1px solid var(--zhu-border-subtle);
+  font-size: var(--zhu-text-caption);
+  color: var(--zhu-text-3);
+  user-select: none;
+  -webkit-user-select: none;
+}
+.zhu-md-code-bar span {
+  font-family: var(--zhu-font-mono);
+}
+.zhu-md-code-bar button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 22px;
+  padding: 0 7px;
+  border-radius: var(--zhu-radius-xs);
+  color: var(--zhu-text-2);
+  transition: background-color var(--zhu-motion-fast) var(--zhu-ease-standard), color var(--zhu-motion-fast) var(--zhu-ease-standard);
+}
+.zhu-md-code-bar button:hover {
+  background: var(--zhu-hover);
+  color: var(--zhu-text);
+}
+.zhu-md-code pre {
+  margin: 0;
+  padding: 12px 14px;
+  overflow-x: auto;
+  font-family: var(--zhu-font-mono);
+  font-size: calc(var(--zhu-text-body) * 0.91);
+  line-height: 1.6;
+  tab-size: 2;
+}
+.zhu-md-code pre code {
+  font-family: inherit;
+  background: transparent;
+  padding: 0;
+  border: 0;
+}
+.zhu-md-table {
+  overflow-x: auto;
+  border: 1px solid var(--zhu-border-subtle);
+  border-radius: var(--zhu-radius-md);
+}
+.zhu-md table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--zhu-text-secondary);
+}
+.zhu-md th,
+.zhu-md td {
+  padding: 7px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--zhu-border-subtle);
+  vertical-align: top;
+}
+.zhu-md th {
+  background: var(--zhu-surface-2);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.zhu-md tr:last-child td {
+  border-bottom: 0;
+}
+.zhu-md .katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 2px 0;
+}
+.zhu-md .katex {
+  font-size: 1.06em;
+}
+
+/* The answer is still being written: a caret follows the last word. */
+.zhu-md.is-streaming > :last-child::after {
+  content: "";
+  display: inline-block;
+  width: 7px;
+  height: 1.05em;
+  margin-left: 3px;
+  vertical-align: text-bottom;
+  border-radius: 2px;
+  background: var(--zhu-accent);
+  animation: zhu-caret 1s steps(2, start) infinite;
+}
+.zhu-md.is-streaming > .zhu-md-code:last-child::after,
+.zhu-md.is-streaming > .zhu-md-table:last-child::after,
+.zhu-md.is-streaming > ul:last-child::after,
+.zhu-md.is-streaming > ol:last-child::after {
+  display: none;
+}
+
+/* Syntax highlighting (highlight.js class names). */
+.zhu-md .hljs-keyword,
+.zhu-md .hljs-selector-tag,
+.zhu-md .hljs-built_in,
+.zhu-md .hljs-type,
+.zhu-md .hljs-literal,
+.zhu-md .hljs-doctag {
+  color: var(--zhu-syntax-keyword);
+}
+.zhu-md .hljs-string,
+.zhu-md .hljs-regexp,
+.zhu-md .hljs-addition,
+.zhu-md .hljs-attribute,
+.zhu-md .hljs-template-tag,
+.zhu-md .hljs-template-variable {
+  color: var(--zhu-syntax-string);
+}
+.zhu-md .hljs-number,
+.zhu-md .hljs-symbol,
+.zhu-md .hljs-bullet,
+.zhu-md .hljs-variable,
+.zhu-md .hljs-attr,
+.zhu-md .hljs-selector-attr,
+.zhu-md .hljs-selector-pseudo {
+  color: var(--zhu-syntax-number);
+}
+.zhu-md .hljs-title,
+.zhu-md .hljs-section,
+.zhu-md .hljs-name,
+.zhu-md .hljs-selector-id,
+.zhu-md .hljs-selector-class,
+.zhu-md .hljs-tag {
+  color: var(--zhu-syntax-title);
+}
+.zhu-md .hljs-comment,
+.zhu-md .hljs-quote,
+.zhu-md .hljs-deletion {
+  color: var(--zhu-syntax-comment);
+  font-style: italic;
+}
+.zhu-md .hljs-meta,
+.zhu-md .hljs-meta .hljs-keyword {
+  color: var(--zhu-syntax-meta);
+}
+.zhu-md .hljs-emphasis {
+  font-style: italic;
+}
+.zhu-md .hljs-strong {
+  font-weight: 650;
+}
+
+/* ------------------------------------------------------------------ Bubbles */
+.zhu-bubble-user {
+  background: var(--zhu-bubble-user);
+  color: var(--zhu-bubble-user-fg);
+  border-radius: 18px 18px 6px 18px;
+  box-shadow: var(--zhu-shadow-1);
+}
+.zhu-bubble-user ::selection,
+.zhu-bubble-user::selection {
+  background: rgba(255, 255, 255, 0.32);
+}
+.zhu-bubble-assistant {
+  background: var(--zhu-surface);
+  border: 1px solid var(--zhu-border-subtle);
+  border-radius: 6px 18px 18px 18px;
+  box-shadow: var(--zhu-shadow-1);
+}
+.zhu-chat-avatar {
+  background: var(--zhu-bubble-user);
+  color: var(--zhu-bubble-user-fg);
+}
+.zhu-chat-rise {
+  animation: zhu-rise var(--zhu-motion-slow) var(--zhu-ease-standard) both;
+}
+.zhu-chat-scroll {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+.zhu-chat-fade {
+  background: linear-gradient(to bottom, transparent, var(--zhu-bg) 55%);
+}
+.zhu-chat-composer {
+  background: var(--zhu-surface);
+  border: 1px solid var(--zhu-border);
+  border-radius: 20px;
+  box-shadow: var(--zhu-shadow-2);
+  transition: border-color var(--zhu-motion-fast) var(--zhu-ease-standard), box-shadow var(--zhu-motion-fast) var(--zhu-ease-standard);
+}
+.zhu-chat-composer:focus-within {
+  border-color: var(--zhu-accent);
+  box-shadow: var(--zhu-shadow-2), 0 0 0 3px var(--zhu-accent-soft);
+}
+.zhu-chat-composer textarea:focus-visible {
+  outline: none;
+}
+/* A screenshot is being dragged from the side panel: the message box shows it can take it. */
+.zhu-chat-composer.is-drop-target {
+  border-style: dashed;
+  border-color: var(--zhu-accent);
+}
+.zhu-chat-composer.is-drop-over {
+  border-style: solid;
+  box-shadow: var(--zhu-shadow-2), 0 0 0 4px var(--zhu-accent-soft);
+}
+
+/* Waiting for the first word. */
+.zhu-typing {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 1.65em;
+}
+.zhu-typing i {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--zhu-text-3);
+  animation: zhu-typing 1.2s ease-in-out infinite;
+}
+.zhu-typing i:nth-child(2) {
+  animation-delay: 0.15s;
+}
+.zhu-typing i:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes zhu-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes zhu-caret {
+  to {
+    visibility: hidden;
+  }
+}
+@keyframes zhu-typing {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.45;
+  }
+  30% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .zhu-typing i,
+  .zhu-md.is-streaming > :last-child::after {
+    animation: none;
+  }
+}
+:root[data-motion="reduce"] .zhu-typing i,
+:root[data-motion="reduce"] .zhu-md.is-streaming > :last-child::after {
+  animation: none;
+}

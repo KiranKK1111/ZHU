@@ -1,0 +1,428 @@
+{
+ "version": 1,
+ "description": "HELD-OUT set: written after tuning on question_dataset.json and never used for tuning. Report its scores as the generalization estimate. Category lists accept any listed topic.",
+ "items": [
+  {
+   "id": "h-1",
+   "tags": [
+    "direct"
+   ],
+   "utterances": [
+    "what are the four pillars of object oriented programming"
+   ],
+   "expected": [
+    {
+     "text": "What are the four pillars of object oriented programming?",
+     "kind": "DIRECT",
+     "category": [
+      "GENERAL",
+      "JAVA"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "h-2",
+   "tags": [
+    "direct"
+   ],
+   "utterances": [
+    "how does a load balancer decide which server gets the request"
+   ],
+   "expected": [
+    {
+     "text": "How does a load balancer decide which server gets the request?",
+     "kind": "DIRECT",
+     "category": "SYSTEM_DESIGN"
+    }
+   ]
+  },
+  {
+   "id": "h-3",
+   "tags": [
+    "direct"
+   ],
+   "utterances": [
+    "what happens when you type a url in the browser and press enter"
+   ],
+   "expected": [
+    {
+     "text": "What happens when you type a URL in the browser and press enter?",
+     "kind": "DIRECT",
+     "category": [
+      "SYSTEM_DESIGN",
+      "GENERAL"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "h-4",
+   "tags": [
+    "imperative"
+   ],
+   "utterances": [
+    "explain the event loop in node js"
+   ],
+   "expected": [
+    {
+     "text": "Explain the event loop in Node.js.",
+     "kind": "IMPERATIVE",
+     "category": [
+      "NODEJS",
+      "JAVASCRIPT"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "h-5",
+   "tags": [
+    "imperative"
+   ],
+   "utterances": [
+    "define acid properties in databases"
+   ],
+   "expected": [
+    {
+     "text": "Define ACID properties in databases.",
+     "kind": "IMPERATIVE",
+     "category": "DATABASE"
+    }
+   ]
+  },
+  {
+   "id": "h-6",
+   "tags": [
+    "imperative"
+   ],
+   "utterances": [
+    "differentiate between process and thread"
+   ],
+   "expected": [
+    {
+     "text": "Differentiate between process and thread.",
+     "kind": "IMPERATIVE",
+     "category": "GENERAL"
+    }
+   ]
+  },
+  {
+   "id": "h-7",
+   "tags": [
+    "coding"
+   ],
+   "utterances": [
+    "write a function to check whether a string is a palindrome"
+   ],
+   "expected": [
+    {
+     "text": "Write a function to check whether a string is a palindrome.",
+     "kind": "CODING_TASK",
+     "category": [
+      "ALGORITHMS",
+      "DATA_STRUCTURES"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "h-8",
+   "tags": [
+    "coding"
+   ],
+   "utterances": [
+    "implement binary search on a sorted array"
+   ],
+   "expected": [
+    {
+     "text": "Implement binary search on a sorted array.",
+     "kind": "CODING_TASK",
+     "category": [
+      "ALGORITHMS",
+      "DATA_STRUCTURES"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "h-9",
+   "tags": [
+    "coding"
+   ],
+   "utterances": [
+    "merge two sorted linked lists"
+   ],
+   "expected": [
+    {
+     "text": "Merge two sorted linked lists.",
+     "kind": "CODING_TASK",
+     "category": [
+      "DATA_STRUCTURES",
+      "ALGORITHMS"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "h-10",
+   "tags": [
+    "sql"
+   ],
+   "utterances": [
+    "how would you find duplicate rows in a table using sql"
+   ],
+   "expected": [
+    {
+     "text": "How would you find duplicate rows in a table using SQL?",
+     "kind": "DIRECT",
+     "category": [
+      "SQL",
+      "DATABASE"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "h-11",
+   "tags": [
+    "math"
+   ],
+   "utterances": [
+    "what is fifteen percent of two hundred"
+   ],
+   "expected": [
+    {
+     "text": "What is 15% of 200?",
+     "kind": "MATH",
+     "category": "MATH"
+    }
+   ]
+  },
+  {
+   "id": "h-12",
+   "tags": [
+    "math"
+   ],
+   "utterances": [
+    "what is two to the power of ten"
+   ],
+   "expected": [
+    {
+     "text": "What is 2^10?",
+     "kind": "MATH",
+     "category": "MATH"
+    }
+   ]
+  },
+  {
+   "id": "h-13",
+   "tags": [
+    "multipart"
+   ],
+   "utterances": [
+    "what is kubernetes, why do we need it, and how is it different from docker swarm"
+   ],
+   "expected": [
+    {
+     "text": "What is Kubernetes, why do we need it, and how is it different from Docker swarm?",
+     "kind": "MULTI_PART",
+     "category": "DEVOPS",
+     "subquestions": 3
+    }
+   ]
+  },
+  {
+   "id": "h-14",
+   "tags": [
+    "followup"
+   ],
+   "utterances": [
+    "What is a closure in JavaScript?",
+    "Can you give an example of it?"
+   ],
+   "expected": [
+    {
+     "text": "What is a closure in JavaScript?",
+     "kind": "DIRECT",
+     "category": "JAVASCRIPT"
+    },
+    {
+     "text": "Can you give an example of it?",
+     "resolved": "Can you give an example of a closure in JavaScript?",
+     "kind": "DIRECT",
+     "category": "JAVASCRIPT",
+     "follow_up": true
+    }
+   ]
+  },
+  {
+   "id": "h-15",
+   "tags": [
+    "followup"
+   ],
+   "utterances": [
+    "What is Docker?",
+    "What about Kubernetes?"
+   ],
+   "expected": [
+    {
+     "text": "What is Docker?",
+     "kind": "DIRECT",
+     "category": "DEVOPS"
+    },
+    {
+     "text": "What about Kubernetes?",
+     "resolved": "What is Kubernetes?",
+     "kind": "DIRECT",
+     "category": "DEVOPS",
+     "follow_up": true
+    }
+   ]
+  },
+  {
+   "id": "h-16",
+   "tags": [
+    "scenario"
+   ],
+   "utterances": [
+    "Let's say you are building a chat application for ten million users. How would you store the messages?"
+   ],
+   "expected": [
+    {
+     "text": "Let's say you are building a chat application for ten million users. How would you store the messages?",
+     "kind": "SCENARIO",
+     "category": [
+      "SYSTEM_DESIGN",
+      "DATABASE"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "h-17",
+   "tags": [
+    "behavioral"
+   ],
+   "utterances": [
+    "tell me about yourself"
+   ],
+   "expected": [
+    {
+     "text": "Tell me about yourself.",
+     "kind": "BEHAVIORAL",
+     "category": "BEHAVIORAL"
+    }
+   ]
+  },
+  {
+   "id": "h-18",
+   "tags": [
+    "behavioral"
+   ],
+   "utterances": [
+    "why do you want to join our company"
+   ],
+   "expected": [
+    {
+     "text": "Why do you want to join our company?",
+     "kind": "BEHAVIORAL",
+     "category": "BEHAVIORAL"
+    }
+   ]
+  },
+  {
+   "id": "h-19",
+   "tags": [
+    "indirect"
+   ],
+   "utterances": [
+    "I was wondering how you handle error logging in production"
+   ],
+   "expected": [
+    {
+     "text": "I was wondering how you handle error logging in production.",
+     "kind": "INDIRECT",
+     "category": [
+      "GENERAL",
+      "DEVOPS"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "h-20",
+   "tags": [
+    "pauses"
+   ],
+   "pause_ms": 2200,
+   "utterances": [
+    "So my question is, how would you",
+    "design a rate limiter?"
+   ],
+   "expected": [
+    {
+     "text": "How would you design a rate limiter?",
+     "kind": "DIRECT",
+     "category": "SYSTEM_DESIGN"
+    }
+   ]
+  },
+  {
+   "id": "h-21",
+   "tags": [
+    "non-question"
+   ],
+   "utterances": [
+    "Alright, that covers the technical part."
+   ],
+   "expected": []
+  },
+  {
+   "id": "h-22",
+   "tags": [
+    "non-question"
+   ],
+   "utterances": [
+    "We used Jenkins for continuous integration."
+   ],
+   "expected": []
+  },
+  {
+   "id": "h-23",
+   "tags": [
+    "non-question"
+   ],
+   "utterances": [
+    "Perfect, thank you so much."
+   ],
+   "expected": []
+  },
+  {
+   "id": "h-24",
+   "tags": [
+    "non-question"
+   ],
+   "utterances": [
+    "I have five years of experience with Java and Spring."
+   ],
+   "expected": []
+  },
+  {
+   "id": "h-25",
+   "tags": [
+    "self-correction"
+   ],
+   "utterances": [
+    "how is mysql, sorry, postgres different from mongodb"
+   ],
+   "expected": [
+    {
+     "text": "How is PostgreSQL different from MongoDB?",
+     "kind": "DIRECT",
+     "category": "DATABASE"
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,39 @@
+# Troubleshooting
+
+Logs: `%LOCALAPPDATA%\app.zhu.desktop\data\logs\engine.log`. `GET /api/system/diagnostics` returns versions, GPU state, the selected speech model, and the event sequence.
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| "Speech model failed to load: mkl_malloc: failed to allocate memory", or "CUDA failed with error out of memory" with plenty of VRAM free | Not enough **host** memory (RAM + page file, the "commit charge"). CTranslate2 reads and converts the whole model in RAM while loading. Measured on the RTX 5060 laptop: it failed with ~1.5 GB of commit free | Close memory-heavy apps (dev servers, browsers with many tabs), or let Windows manage the page file (System → About → Advanced system settings → Performance → Virtual memory). ZHU automatically retries with INT8, then smaller models, then CPU, and the error message shows the measured free memory |
+| "Local transcription is running in CPU mode." | No CUDA device, an old driver, or nothing fits the VRAM budget | Update the NVIDIA driver (≥ 550), or pick a smaller speech model (Settings → Listening → Speech recognition → Change) |
+| Parakeet runs on the CPU although a GPU is present | Less than 4 GB of memory (RAM + page file) was free when listening started, the VRAM budget is under 2.8 GB, or precision is set to INT8. `GET /api/listening/status` reports the model, device, and selection reason | Usually fine: Parakeet on the CPU is fast (about 0.1 s per utterance, see BENCHMARKS.md). For the GPU, close memory-heavy apps, then stop and start listening |
+| "Speech model failed to load … E_OUTOFMEMORY" (Parakeet on DirectML) | Not enough host memory for the DirectML load (about 3.5 GB) | ZHU retries the same model on the CPU automatically (about 1.5 GB) |
+| "No speech model is installed yet." | Model setup was skipped | Settings → Listening → Speech recognition → Change, then Download |
+| Model download fails | No network, a proxy, or blocked `huggingface.co` | Retry. Partial files resume. Behind a proxy, set `HTTPS_PROXY` for the user account |
+| Engine "failed" banner at launch | The engine crashed or was blocked by antivirus | Click **Restart engine**, check `engine.log`, and allow `zhu-engine.exe` in your antivirus |
+| No system-audio transcript | Nothing is playing on the selected output, or the wrong output device | Settings → Listening → The call: choose the speaker or headset you are actually listening on |
+| Microphone "reconnecting" | The device was unplugged, is exclusively owned by another app, or is blocked by Windows privacy settings | Windows Settings → Privacy → Microphone → allow desktop apps. ZHU reconnects automatically |
+| Transcript is empty on silence / "Thank you." never appears | Expected: hallucination guard (AUDIO_PIPELINE.md) | — |
+| Questions complete too early or too late | Pause thresholds | The defaults suit most speakers. They can be changed through the settings API (`questions.*`, CONFIGURATION.md) |
+| A technical term is wrong (e.g. "Post gress") | Missing vocabulary alias | Use **Edit wording** on the question. Aliases can be added through `PUT /api/vocabulary` |
+| Sidecar can't be clicked | Click-through is on | Ctrl+Shift+K or tray → *Disable sidecar click-through* |
+| ZHU is running but not in the taskbar or Alt+Tab | **Hide from taskbar, Alt+Tab and screen capture** is on (the eye button in the title bar) | Press the eye button again, or tray → *Show in taskbar, Alt+Tab and screen capture*. Restarting ZHU also switches it off |
+| ZHU is on screen but missing from a screenshot, a recording or a screen share | The same switch: while ZHU is hidden, Windows leaves its windows out of captures | Expected. Switch the hiding off as above to have ZHU in the capture |
+| ZHU still shows in a capture, or as a black rectangle, while hidden | Windows older than 10 version 2004 shows a black rectangle; a tool that does not capture through Windows' compositor may show the window | Update Windows, or minimize ZHU before capturing |
+| ZHU's main window stays above every other window | The same switch: while ZHU is hidden, the main window stays on top so it cannot get lost | Minimize it to get it out of the way, or switch the hiding off as above |
+| Sidecar vanished after unplugging a monitor | Off-screen position | It's moved back automatically within 5 s. Toggle it with Ctrl+Shift+Space |
+| A hotkey doesn't work | Another app registered it | Settings → General → Keyboard shortcuts: click it and press a different combination |
+| Chat tab: "… is showing its sign-in page" or "No message box found" | You are not signed in on that site yet, or it shows a consent or verification page | Open the tab, sign in (once), and open a chat. ZHU never types into sign-in pages. Then use **Send latest question** |
+| A provider refuses sign-in in a chat tab ("This browser or app may not be secure") | Some providers (Google for some accounts) block sign-in in application-embedded browsers | ZHU does not work around this. Use that provider's API (Providers), or its site in your normal browser |
+| Chat tab: "this page did not accept the screenshot" or "attachment not confirmed" | The site allows attachments only after sign-in or on a paid plan, or shows no preview ZHU can detect | Check the draft in the tab. If the image is missing, use **Copy image** on the screenshot and paste it yourself |
+| The question did not appear in a chat tab | Automatic delivery is off, you were not listening, the tab is not in the target ("Selected tab"), or the site changed its page | The options button on the AI chats tab strip; the tab's toolbar shows the last result. **Send latest question** retries |
+| The chat page disappears while a menu or dialog is open | ZHU's own menus would be hidden behind the native page, so the page is hidden meanwhile | Expected; it returns when the menu closes |
+| ZHU uses a lot of memory with many chat tabs | Each loaded tab is a full web page (150–400 MB) | Close tabs you do not need, or set **Send to: Selected tab** |
+| Custom model: "rejected the API key (or requires one)" / "model or endpoint not found" | The server needs a key, or the endpoint URL is not the OpenAI-compatible base (usually ends in `/v1`) | Settings → AI models → that model → Manage: fix the address or add the key, then **Connect** |
+| A screenshot cannot be sent in Custom chat: "… cannot read images", or the gateway answers "model or endpoint not found" | The selected model is text-only. A gateway answers "not found" when a picture is sent to such a model | Press the **Use …** button in the message box, or pick a model that reads images (on Kilo Gateway, for example `nvidia/nemotron-3.5-super-vl:free` or `openrouter/free`). The list of which models read images is taken from the gateway the first time a screenshot is sent, and on **Connect** |
+| "Connect" worked but no model was chosen | The provider lists no model ZHU recognises (its line-up changed) | Pick one from the dropdown that appears under the key |
+| A free model answers "rate limit" quickly | Free tiers allow few requests per minute and per day | Wait, switch off Auto-answer, or connect a second provider and pick it on Home |
+| Provider "rate limit or quota reached" | API quota, billing, or rate limit | Wait for the shown retry time, or check billing on the provider's console. API usage is billed separately from chat subscriptions |
+| Provider "rejected the API key" | Invalid or revoked key | Settings → AI models → Manage → paste the new key → Connect |
+| A screenshot shows black areas | DRM-protected content (video players and some browsers) | Expected. ZHU does not bypass content protection |
+| SmartScreen warning on install | Unsigned build | See INSTALLATION.md §5 |

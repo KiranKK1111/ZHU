@@ -1,0 +1,89 @@
+{
+ "measured_at": "2026-11-17 23:07:42",
+ "gpu": {
+  "cuda_available": true,
+  "device_name": "NVIDIA GeForce RTX 5060 Laptop GPU",
+  "driver_version": "581.34",
+  "vram_total_mb": 8151,
+  "vram_free_mb": 7810,
+  "vram_used_mb": 341,
+  "engine_vram_mb": null,
+  "utilization_pct": 0,
+  "temperature_c": 57,
+  "compute_types": [
+   "bfloat16",
+   "float16",
+   "float32",
+   "int8",
+   "int8_bfloat16",
+   "int8_float16",
+   "int8_float32"
+  ],
+  "error": null
+ },
+ "isolation": "one process per configuration",
+ "results": [],
+ "e2e": {
+  "model": "parakeet-tdt-0.6b-v2",
+  "device": "cpu",
+  "compute_type": "int8",
+  "questions": 7,
+  "completed": 7,
+  "extra_questions": 0,
+  "speech_end_to_question_completed_ms": {
+   "p50": 600,
+   "max": 1372
+  },
+  "per_question": [
+   {
+    "clip": "clear-q-di",
+    "completed": true,
+    "latency_ms": 630,
+    "text": "Can you explain what dependency injection is and how Spring Boot manages beans?"
+   },
+   {
+    "clip": "clear-q-eq",
+    "completed": true,
+    "latency_ms": 542,
+    "text": "What is the difference between == and === in JavaScript?"
+   },
+   {
+    "clip": "clear-q-ll",
+    "completed": true,
+    "latency_ms": 1372,
+    "text": "Write a program to reverse a linked list."
+   },
+   {
+    "clip": "clear-q-micro",
+    "completed": true,
+    "latency_ms": 600,
+    "text": "What is a microservice, why would you use it, and how would you handle distributed transactions?"
+   },
+   {
+    "clip": "clear-q-scen",
+    "completed": true,
+    "latency_ms": 497,
+    "text": "Suppose your application receives 1 million requests per second. How would you design the architecture?"
+   },
+   {
+    "clip": "clear-q-kafka",
+    "completed": true,
+    "latency_ms": 461,
+    "text": "How does Kafka guarantee message ordering within a partition?"
+   },
+   {
+    "clip": "clear-q-short",
+    "completed": true,
+    "latency_ms": 761,
+    "text": "What is polymorphism?"
+   }
+  ],
+  "stt_stats": {
+   "jobs": 48,
+   "dropped_partials": 0,
+   "last_rtf": 0.061,
+   "last_latency_ms": 88,
+   "load_ms": 2294
+  }
+ }
+}

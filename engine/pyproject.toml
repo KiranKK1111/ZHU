@@ -1,0 +1,49 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "zhu-engine"
+version = "0.1.0"
+description = "ZHU local processing engine: audio capture, VAD, STT, question detection, capture, providers"
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi>=0.115",
+  "uvicorn[standard]>=0.34",
+  "pydantic>=2.9",
+  "numpy>=2.0",
+  "faster-whisper>=1.1",
+  # DirectML build of ONNX Runtime: CPU + DirectML (GPU) execution providers, used by Silero VAD
+  # (CPU) and Parakeet (GPU or CPU). faster-whisper also pulls in the CPU-only "onnxruntime"
+  # wheel, which installs into the same package folder, so packaging/build.ps1 reinstalls this
+  # one afterwards. 1.24.4 is the last DirectML release on PyPI.
+  "onnxruntime-directml==1.24.4; sys_platform == 'win32'",
+  "onnxruntime>=1.20; sys_platform != 'win32'",
+  "PyAudioWPatch>=0.2.12; sys_platform == 'win32'",
+  "soxr>=0.5",
+  "mss>=9",
+  "pillow>=11",
+  "keyring>=25",
+  "httpx>=0.28",
+  "nvidia-ml-py>=12",
+  "huggingface_hub>=0.26",
+  "anthropic>=2.0",
+  "pypdf>=5",  # text of an uploaded résumé (PDF)
+]
+
+[project.optional-dependencies]
+cuda = ["nvidia-cublas-cu12", "nvidia-cudnn-cu12>=9,<10"]
+dev = ["pytest>=8", "pytest-asyncio>=0.24", "pyinstaller>=6.11"]
+
+[project.scripts]
+zhu-engine = "zhu_engine.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["zhu_engine*"]
+
+[tool.setuptools.package-data]
+"zhu_engine.questions" = ["data/*.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"

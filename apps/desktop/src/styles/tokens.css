@@ -1,0 +1,152 @@
+/*
+ * ZHU design tokens. Single source for color, type, spacing, radius, elevation,
+ * motion, opacity and component dimensions. Themes swap only the semantic values.
+ */
+:root {
+  /* Radius */
+  --zhu-radius-xs: 4px;
+  --zhu-radius-sm: 6px;
+  --zhu-radius-md: 10px;
+  --zhu-radius-lg: 14px;
+  --zhu-radius-xl: 18px;
+
+  /* Spacing (4px grid) */
+  --zhu-space-1: 4px;
+  --zhu-space-2: 8px;
+  --zhu-space-3: 12px;
+  --zhu-space-4: 16px;
+  --zhu-space-5: 20px;
+  --zhu-space-6: 24px;
+  --zhu-space-8: 32px;
+
+  /* Motion */
+  --zhu-motion-fast: 120ms;
+  --zhu-motion-normal: 200ms;
+  --zhu-motion-slow: 280ms;
+  --zhu-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --zhu-ease-emphasized: cubic-bezier(0.3, 0, 0, 1.15);
+
+  /* Typography */
+  --zhu-font-sans: "Segoe UI Variable Text", "Segoe UI Variable", "Segoe UI", Inter, system-ui, -apple-system, sans-serif;
+  --zhu-font-display: "Segoe UI Variable Display", "Segoe UI Variable", "Segoe UI", Inter, system-ui, sans-serif;
+  --zhu-font-mono: "Cascadia Code", "Cascadia Mono", Consolas, "JetBrains Mono", ui-monospace, monospace;
+  --zhu-font-scale: 1;
+  --zhu-text-display: calc(30px * var(--zhu-font-scale));
+  --zhu-text-page: calc(24px * var(--zhu-font-scale));
+  --zhu-text-section: calc(17px * var(--zhu-font-scale));
+  --zhu-text-card: calc(15px * var(--zhu-font-scale));
+  --zhu-text-body: calc(14px * var(--zhu-font-scale));
+  --zhu-text-secondary: calc(12.5px * var(--zhu-font-scale));
+  --zhu-text-caption: calc(11.5px * var(--zhu-font-scale));
+
+  /* Component dimensions */
+  --zhu-titlebar-h: 44px;
+  --zhu-sidebar-w: 232px;
+  --zhu-sidebar-w-collapsed: 64px;
+  --zhu-context-w: 320px; /* UI prompt §6: 280–320 px; 320 fits the three tab labels at 125% scaling */
+  --zhu-control-h: 32px;
+  --zhu-control-h-sm: 28px;
+  --zhu-row-gap: 10px;
+  --zhu-card-pad: 16px;
+
+  /* Native Windows caption-button colors (close hover matches the OS) */
+  --zhu-window-close: #c42b1c;
+  --zhu-window-close-fg: #ffffff;
+
+  /* Opacity */
+  --zhu-opacity-disabled: 0.45;
+  --zhu-opacity-muted: 0.7;
+
+  /* Breakpoints (documentation for JS layout modes; see useLayoutMode) */
+  --zhu-bp-compact: 1100px;
+  --zhu-bp-wide: 1400px;
+}
+
+:root[data-density="compact"] {
+  --zhu-control-h: 28px;
+  --zhu-control-h-sm: 24px;
+  --zhu-row-gap: 6px;
+  --zhu-card-pad: 12px;
+}
+
+/* Dark theme (default) */
+:root,
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --zhu-bg: #0b0d12;
+  --zhu-sidebar: #10131a;
+  --zhu-surface: #171b24;
+  --zhu-surface-2: #1d2330;
+  --zhu-surface-3: #242b3a;
+  --zhu-hover: rgba(255, 255, 255, 0.05);
+  --zhu-active: rgba(255, 255, 255, 0.085);
+  --zhu-text: #f5f7fb;
+  --zhu-text-2: #a4acbc;
+  --zhu-text-3: #7d8697;
+  --zhu-accent: #8b7cf6;
+  --zhu-accent-hover: #9d90f8;
+  --zhu-accent-fg: #0b0d12;
+  --zhu-accent-soft: rgba(139, 124, 246, 0.14);
+  --zhu-border: #2a303d;
+  --zhu-border-subtle: #202532;
+  --zhu-focus: #a99dfa;
+  --zhu-success: #46c08a;
+  --zhu-success-soft: rgba(70, 192, 138, 0.13);
+  --zhu-warning: #e6ad55;
+  --zhu-warning-soft: rgba(230, 173, 85, 0.13);
+  --zhu-error: #f06a67;
+  --zhu-error-soft: rgba(240, 106, 103, 0.13);
+  --zhu-recording: #f2554f;
+  --zhu-recording-soft: rgba(242, 85, 79, 0.15);
+  --zhu-scrim: rgba(4, 5, 9, 0.62);
+  --zhu-shadow-1: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --zhu-shadow-2: 0 8px 24px rgba(0, 0, 0, 0.38), 0 1px 3px rgba(0, 0, 0, 0.3);
+  --zhu-shadow-3: 0 20px 48px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --zhu-bg: #f6f7fa;
+  --zhu-sidebar: #ffffff;
+  --zhu-surface: #ffffff;
+  --zhu-surface-2: #eef1f5;
+  --zhu-surface-3: #e4e8ef;
+  --zhu-hover: rgba(23, 27, 36, 0.045);
+  --zhu-active: rgba(23, 27, 36, 0.08);
+  --zhu-text: #171b24;
+  --zhu-text-2: #626c7d;
+  --zhu-text-3: #6b7484;
+  --zhu-accent: #6658d3;
+  --zhu-accent-hover: #5a4cc6;
+  --zhu-accent-fg: #ffffff;
+  --zhu-accent-soft: rgba(102, 88, 211, 0.1);
+  --zhu-border: #e2e6ed;
+  --zhu-border-subtle: #eceff4;
+  --zhu-focus: #6658d3;
+  --zhu-success: #1f8a5b;
+  --zhu-success-soft: rgba(31, 138, 91, 0.1);
+  --zhu-warning: #a86a0c;
+  --zhu-warning-soft: rgba(168, 106, 12, 0.1);
+  --zhu-error: #c8322f;
+  --zhu-error-soft: rgba(200, 50, 47, 0.09);
+  --zhu-recording: #d63a35;
+  --zhu-recording-soft: rgba(214, 58, 53, 0.1);
+  --zhu-scrim: rgba(23, 27, 36, 0.38);
+  --zhu-shadow-1: 0 1px 2px rgba(23, 27, 36, 0.06);
+  --zhu-shadow-2: 0 8px 24px rgba(23, 27, 36, 0.1), 0 1px 3px rgba(23, 27, 36, 0.06);
+  --zhu-shadow-3: 0 20px 48px rgba(23, 27, 36, 0.16), 0 2px 6px rgba(23, 27, 36, 0.08);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --zhu-motion-fast: 1ms;
+    --zhu-motion-normal: 1ms;
+    --zhu-motion-slow: 1ms;
+  }
+}
+
+:root[data-motion="reduce"] {
+  --zhu-motion-fast: 1ms;
+  --zhu-motion-normal: 1ms;
+  --zhu-motion-slow: 1ms;
+}

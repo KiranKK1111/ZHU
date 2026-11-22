@@ -1,0 +1,98 @@
+{
+ "measured_at": "2026-11-17 04:31:01",
+ "gpu": {
+  "cuda_available": true,
+  "device_name": "NVIDIA GeForce RTX 5060 Laptop GPU",
+  "driver_version": "581.34",
+  "vram_total_mb": 8151,
+  "vram_free_mb": 7810,
+  "vram_used_mb": 341,
+  "engine_vram_mb": null,
+  "utilization_pct": 0,
+  "temperature_c": 58,
+  "compute_types": [
+   "bfloat16",
+   "float16",
+   "float32",
+   "int8",
+   "int8_bfloat16",
+   "int8_float16",
+   "int8_float32"
+  ],
+  "error": null
+ },
+ "isolation": "one process per configuration",
+ "results": [
+  {
+   "config": "turbo-int8",
+   "model": "large-v3-turbo",
+   "device": "cuda",
+   "compute_type": "int8_float16",
+   "load_error": "RuntimeError('mkl_malloc: failed to allocate memory')",
+   "host_ram_free_mb": 2763,
+   "host_commit_free_mb": 1712,
+   "vram_used_mb": 442
+  }
+ ],
+ "e2e": {
+  "compute_type": "int8_float16",
+  "questions": 7,
+  "completed": 0,
+  "extra_questions": 0,
+  "speech_end_to_question_completed_ms": {
+   "p50": null,
+   "max": null
+  },
+  "per_question": [
+   {
+    "clip": "clear-q-di",
+    "completed": false,
+    "latency_ms": null,
+    "text": null
+   },
+   {
+    "clip": "clear-q-eq",
+    "completed": false,
+    "latency_ms": null,
+    "text": null
+   },
+   {
+    "clip": "clear-q-ll",
+    "completed": false,
+    "latency_ms": null,
+    "text": null
+   },
+   {
+    "clip": "clear-q-micro",
+    "completed": false,
+    "latency_ms": null,
+    "text": null
+   },
+   {
+    "clip": "clear-q-scen",
+    "completed": false,
+    "latency_ms": null,
+    "text": null
+   },
+   {
+    "clip": "clear-q-kafka",
+    "completed": false,
+    "latency_ms": null,
+    "text": null
+   },
+   {
+    "clip": "clear-q-short",
+    "completed": false,
+    "latency_ms": null,
+    "text": null
+   }
+  ],
+  "stt_stats": {
+   "jobs": 0,
+   "dropped_partials": 31,
+   "last_rtf": null,
+   "last_latency_ms": null,
+   "load_ms": null
+  }
+ }
+}

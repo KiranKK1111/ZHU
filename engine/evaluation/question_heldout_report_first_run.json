@@ -1,0 +1,87 @@
+{
+  "items": 25,
+  "expected_questions": 23,
+  "detection": {
+    "tp": 22,
+    "fp": 0,
+    "fn": 1,
+    "precision": 1.0,
+    "recall": 0.9565,
+    "f1": 0.9778
+  },
+  "kind_accuracy": 1.0,
+  "category_accuracy": 0.8636,
+  "exact_format_rate": 0.8636,
+  "follow_up_resolution_accuracy": 1.0,
+  "needs_review_accuracy": null,
+  "subquestion_count_accuracy": 1.0,
+  "ingest_latency_ms": {
+    "p50": 0.507,
+    "max": 1.927
+  },
+  "classification_calibration": {
+    "0.3": {
+      "n": 3,
+      "accuracy": 0.667
+    },
+    "0.4": {
+      "n": 1,
+      "accuracy": 1.0
+    },
+    "0.6": {
+      "n": 2,
+      "accuracy": 1.0
+    },
+    "0.7": {
+      "n": 5,
+      "accuracy": 0.6
+    },
+    "0.8": {
+      "n": 4,
+      "accuracy": 1.0
+    },
+    "0.9": {
+      "n": 7,
+      "accuracy": 1.0
+    }
+  },
+  "failures": [
+    {
+      "id": "h-3",
+      "issues": [
+        "category TYPESCRIPT != ['SYSTEM_DESIGN', 'GENERAL']: What happens when you type a URL in the browser and press enter?",
+        "format: got 'What happens when you type a url in the browser and press enter?' expected 'What happens when you type a URL in the browser and press enter?'"
+      ]
+    },
+    {
+      "id": "h-9",
+      "issues": [
+        "category GENERAL != ['DATA_STRUCTURES', 'ALGORITHMS']: Merge two sorted linked lists."
+      ]
+    },
+    {
+      "id": "h-13",
+      "issues": [
+        "format: got 'What is Kubernetes, why do we need it, and how is it different from Docker swarm?' expected 'What is Kubernetes, why do we need it, and how is it different from docker swarm?'"
+      ]
+    },
+    {
+      "id": "h-16",
+      "issues": [
+        "category JAVASCRIPT != ['SYSTEM_DESIGN', 'DATABASE']: Let's say you are building a chat application for ten million users. How would you store the messages?"
+      ]
+    },
+    {
+      "id": "h-19",
+      "issues": [
+        "missed: I was wondering how you handle error logging in production."
+      ]
+    },
+    {
+      "id": "h-20",
+      "issues": [
+        "format: got 'My question is, how would you design a rate limiter?' expected 'How would you design a rate limiter?'"
+      ]
+    }
+  ]
+}

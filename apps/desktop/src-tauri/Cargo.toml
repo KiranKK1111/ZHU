@@ -1,0 +1,45 @@
+[package]
+name = "zhu"
+version = "0.1.0"
+description = "ZHU — interview preparation and conversation-assistance workspace"
+edition = "2021"
+rust-version = "1.80"
+
+[lib]
+name = "zhu_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+# "unstable" enables multiple webviews in one window (Window::add_child), used by the embedded web chat tabs.
+tauri = { version = "2", features = ["tray-icon", "image-png", "unstable"] }
+tauri-plugin-global-shortcut = "2"
+tauri-plugin-autostart = "2"
+tauri-plugin-single-instance = "2"
+tauri-plugin-window-state = "2"
+tauri-plugin-clipboard-manager = "2"
+tauri-plugin-opener = "2"
+tauri-plugin-dialog = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+getrandom = "0.2"
+log = "0.4"
+
+# Direct Windows calls for three things the window library does not cover: the floating icon asks
+# Windows itself whether it is really visible and on top (bubble.rs; the library only remembers
+# what it last set), the resize cursors at the window edges are ZHU's own (resize_cursor.rs), and
+# the switch that takes ZHU out of the taskbar and Alt+Tab (bars.rs; the library's skipTaskbar
+# leaves a window in Alt+Tab).
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.62", features = ["Win32_Foundation", "Win32_Graphics_Dwm", "Win32_Graphics_Gdi", "Win32_UI_HiDpi", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging"] }
+
+[profile.release]
+# Fat LTO with one codegen unit needs several GB of RAM per rustc process, which failed to
+# compile on the 16 GB development laptop. The shell is a thin window/IPC layer, so the size
+# and speed gains of LTO are not worth an unreliable build.
+lto = false
+opt-level = "s"
+panic = "abort"
+strip = true

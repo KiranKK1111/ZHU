@@ -1,0 +1,112 @@
+# Builds dist\ZHU-Setup.exe with packaging\build.ps1 (tests, frozen engine, Tauri app, NSIS installer).
+#
+#   * Pushing a version tag (v0.2.0, v1.0.0-beta.1, ...) builds the installer and publishes it as a
+#     GitHub Release for that tag, with its SHA-256 checksum.
+#   * "Run workflow" on the Actions page builds the same installer from any branch and keeps it as
+#     a downloadable artifact of the run, without a release. Use it to try the build before tagging.
+#
+# The runner has no NVIDIA card: the engine's smoke test then reports "CUDA available: False",
+# which is expected. The CUDA runtime is still bundled, from the pip wheels.
+
+name: Build installer
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write # to create the release and attach the installer
+
+concurrency:
+  group: installer-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  installer:
+    name: ZHU-Setup.exe
+    runs-on: windows-latest
+    timeout-minutes: 120
+    env:
+      # build.ps1 limits cargo to 2 jobs for 16 GB laptops; the runner can take more.
+      CARGO_BUILD_JOBS: "4"
+      PYTHONUTF8: "1"
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Compare the tag with the app's version
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        run: |
+          $app = (Get-Content apps/desktop/src-tauri/tauri.conf.json -Raw | ConvertFrom-Json).version
+          $tag = $env:GITHUB_REF_NAME -replace '^v', ''
+          if ($app -ne $tag) {
+            Write-Output "::warning title=Version mismatch::The tag is $env:GITHUB_REF_NAME but the app's version is $app. The installer and the app will show $app. See docs/INSTALLATION.md, Releasing."
+          }
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: engine/pyproject.toml
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18.x"
+          cache: npm
+          cache-dependency-path: apps/desktop/package-lock.json
+
+      - name: Cache the Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri
+
+      # build.ps1 creates the virtualenv with the "py" launcher when there is none. Making it here
+      # uses the Python set up above, whatever the launcher on the runner would have picked.
+      - name: Create the engine's virtualenv
+        shell: pwsh
+        run: python -m venv engine\.venv
+
+      - name: Build the installer
+        shell: pwsh
+        run: ./packaging/build.ps1
+
+      - name: Keep the installer with this run
+        uses: actions/upload-artifact@v4
+        with:
+          name: ZHU-Setup
+          path: |
+            dist/ZHU-Setup.exe
+            dist/ZHU-Setup.exe.sha256
+          if-no-files-found: error
+          compression-level: 0 # the installer is already compressed
+          retention-days: 14
+
+      - name: Publish the release
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = $env:GITHUB_REF_NAME
+          $files = @('dist/ZHU-Setup.exe', 'dist/ZHU-Setup.exe.sha256')
+          $hash = (Get-Content dist/ZHU-Setup.exe.sha256 -Raw).Split(' ')[0]
+          $notes = @"
+          **Install:** download ``ZHU-Setup.exe`` below and run it. It needs no administrator rights.
+
+          This build is not code-signed, so Windows SmartScreen may show "Windows protected your PC": choose **More info**, then **Run anyway**.
+
+          SHA-256: ``$hash``
+          "@
+          gh release view $tag *> $null
+          if ($LASTEXITCODE -eq 0) {
+            # The release exists (the workflow was run again for the same tag): replace its files.
+            gh release upload $tag @files --clobber
+          } else {
+            gh release create $tag @files --title "ZHU $tag" --notes $notes --generate-notes --verify-tag
+          }
+          exit $LASTEXITCODE

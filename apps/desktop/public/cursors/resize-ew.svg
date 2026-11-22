@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+  <!-- At the edge of a ZHU window: drag left and right to resize. Hot spot: 16 16 (its middle).
+       The shell shows this one (src-tauri/src/resize_cursor.rs), from the PNGs that `npm run icons` renders. -->
+  <defs>
+    <linearGradient id="g" x1="7" y1="10" x2="25" y2="22" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#B3A4FF"/>
+      <stop offset="0.5" stop-color="#7F6EF6"/>
+      <stop offset="1" stop-color="#4B3FD8"/>
+    </linearGradient>
+    <filter id="s" x="-40%" y="-40%" width="180%" height="190%">
+      <feDropShadow dx="0" dy="1" stdDeviation="0.9" flood-color="#17123A" flood-opacity="0.5"/>
+    </filter>
+  </defs>
+  <g filter="url(#s)">
+    <path transform="rotate(0 16 16)" fill="url(#g)" stroke="#FFFFFF" stroke-width="1.3" stroke-linejoin="round"
+          d="M5.5 16 L11.2 10.2 V13.8 H20.8 V10.2 L26.5 16 L20.8 21.8 V18.2 H11.2 V21.8 Z"/>
+  </g>
+</svg>

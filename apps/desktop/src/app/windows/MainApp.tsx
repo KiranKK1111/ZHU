@@ -1,8 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { EngineGate } from "@/app/providers/EngineGate";
+import { useOpacitySync } from "@/app/state/opacity";
 import { qk } from "@/app/providers/queryKeys";
-import { ROUTE_BY_ID, type RouteId } from "@/app/routing/routes";
 import { usePrefs } from "@/app/state/prefs";
 import { isRecording, useSession } from "@/app/state/session";
 import { toast, useNav } from "@/app/state/ui";
@@ -21,6 +21,7 @@ import { HOTKEY_LABELS, type HotkeyAction, type TrayAction, type WebChatEvent } 
 import { errorMessage } from "@/utils/format";
 
 export default function MainApp() {
+  useOpacitySync(); // before the engine is ready too: the window itself is see-through or not
   return (
     <EngineGate>
       <MainConnected />
@@ -153,11 +154,6 @@ function useShellIntegration() {
         .then((tabs) => tabs.forEach((t) => useWebChat.getState().patch(t.id, { loaded: true, loading: t.loading, url: t.url })))
         .catch(() => undefined);
     }
-    offs.push(
-      onShellEvent<{ route: RouteId }>("zhu://navigate", ({ route }) => {
-        useNav.getState().navigate(ROUTE_BY_ID[route] ? route : "home");
-      }),
-    );
     return () => {
       for (const p of offs) void p.then((off) => off());
     };

@@ -18,14 +18,16 @@
 These need a real desktop session, and a person should check them on each release:
 
 - [ ] Main window at 900×600, 1366×768, 1920×1080, 2560×1440, 3840×2160 and at 100/125/150/200% scaling: no clipping, overlap, or horizontal scroll
-- [ ] Sidecar: drag, resize to 300×260, compact mode, edge snapping, move between monitors, unplug a monitor (it recovers within 5 s), opacity, click-through + Ctrl+Shift+K
+- [ ] Opacity (title bar): 40% to 100% on the main window, a chat website tab and the floating icon; **Back to 100%**; kept after a restart. Hide mode starts at 80%, can be changed while hidden, and showing ZHU brings back the previous level
 - [ ] Windows Snap by dragging the title bar to an edge, Win+Arrow, double-click maximize
+- [ ] Title bar on every screen: Start listening, then Live with the timer, Pause/Resume and Stop; New session (+) only while nothing is recorded; a listening error shows a notice and Stopped
+- [ ] Home dividers: drag the one between Questions and Answers and the one above the transcript (resize pointer, accent line); sizes kept after a restart; double-click resets; arrow keys, Page Up/Down and Enter on a focused divider; a narrow window stacks the two columns
 - [ ] Tray: show/hide, start/pause listening label, **Restart the engine**, quit (`zhu.exe` gone from Task Manager within a few seconds; `engine stopped` at the end of `engine.log`)
 - [ ] One process: while ZHU runs (listening or not), Task Manager shows only `zhu.exe` (no `zhu-engine.exe`, no `python.exe`)
 - [ ] Settings → App → **Restart engine** while listening: the window stays where it is, a notice shows the restart, listening stops, the engine is back within seconds
-- [ ] Hide from the taskbar, Alt+Tab and screen capture: press Alt+Tab and Win+Tab with it on (no ZHU, no sidecar, no floating icon) and off; switch it from the tray menu; restart Explorer with it on (no taskbar button comes back)
-- [ ] While hidden: a full-screen screenshot (PrtSc, Snipping Tool) and a screen share show the desktop behind ZHU's main window, sidecar and floating icon; after switching the hiding off they show ZHU again; ZHU's own screenshot (Ctrl+Shift+A) taken while hidden leaves ZHU hidden afterwards
-- [ ] While hidden: the main window stays above other apps when they are clicked, including a maximized one; the sidecar stays in front of the main window when the main window is clicked, and comes up in front when it is shown; with the sidecar's own "always on top" switched off, the main window covers it; after showing ZHU in the taskbar again the main window goes behind other windows normally
+- [ ] Hide from the taskbar, Alt+Tab and screen capture: press Alt+Tab and Win+Tab with it on (no ZHU, no floating icon) and off; switch it from the tray menu; restart Explorer with it on (no taskbar button comes back)
+- [ ] While hidden: a full-screen screenshot (PrtSc, Snipping Tool) and a screen share show the desktop behind ZHU's main window and floating icon; after switching the hiding off they show ZHU again; ZHU's own screenshot (Ctrl+Shift+A) taken while hidden leaves ZHU hidden afterwards
+- [ ] While hidden: the main window stays above other apps when they are clicked, including a maximized one; after showing ZHU in the taskbar again the main window goes behind other windows normally
 - [ ] Global hotkeys with a conflicting app registered
 - [ ] Keyboard-only navigation of every screen; screen reader announces the recording state
 - [ ] Clean install on a fresh Windows user account; first-run model download; uninstall

@@ -1,17 +1,18 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { Copy as RestoreIcon, Minus, PanelRight, PictureInPicture2, Square, X } from "lucide-react";
+import { Copy as RestoreIcon, Minus, PanelRight, Square, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { usePrefs } from "@/app/state/prefs";
 import { IconButton } from "@/components/primitives/Button";
-import { RecordingIndicator } from "@/components/transcription/RecordingIndicator";
 import { useCurrentSession } from "@/hooks/useSessionData";
-import { inTauri, shell } from "@/services/shell";
+import { inTauri } from "@/services/shell";
 import { HideFromBarsButton } from "./HideFromBarsButton";
+import { ListeningControl } from "./ListeningControl";
+import { OpacityButton } from "./OpacityButton";
 import { Logo } from "./Logo";
 
 /**
- * Custom title bar: the logo, the recording state, buttons for the floating sidecar, the taskbar
- * switch and the screenshots panel, and the window controls. data-tauri-drag-region marks the background as the native drag area, so Tauri
+ * Custom title bar: the logo, listening (start, pause, stop, with the recording state: on every
+ * screen), buttons for opacity, the taskbar switch and the screenshots panel, and the window controls. data-tauri-drag-region marks the background as the native drag area, so Tauri
  * handles dragging, double-click maximize and Windows Snap.
  */
 export function TitleBar() {
@@ -29,12 +30,9 @@ export function TitleBar() {
         ) : null}
       </div>
       <div className="flex items-center gap-1">
-        <RecordingIndicator showElapsed size="sm" />
-        {inTauri ? (
-          <IconButton label="Show or hide the floating sidecar" shortcut="Ctrl+Shift+Space" onClick={() => void shell.toggleSidecar().catch(() => undefined)}>
-            <PictureInPicture2 className="h-4 w-4" />
-          </IconButton>
-        ) : null}
+        <ListeningControl />
+        <span aria-hidden className="mx-1 h-5 w-px bg-border-subtle" />
+        {inTauri ? <OpacityButton /> : null}
         {inTauri ? <HideFromBarsButton /> : null}
         <IconButton label={sidePanel ? "Hide screenshots and résumé" : "Show screenshots and résumé"} active={sidePanel} onClick={() => setPrefs({ sidePanelOpen: !sidePanel })}>
           <PanelRight className="h-4 w-4" />

@@ -9,7 +9,7 @@ ZHU listens to a conversation, writes down the questions that are asked, and hel
    * **The chat websites you already use** (AI chats): ChatGPT, Claude, Gemini, and others open as tabs inside ZHU. Sign in once, as in a browser.
 
 ## Home
-* **Start listening** begins a session. ZHU listens to the call (your computer's sound) and to your microphone. **Pause**, **Stop**, and the timer are at the top; the title bar and tray always show whether ZHU is recording.
+* **Start listening** (in the title bar, on every screen) begins a session. ZHU listens to the call (your computer's sound) and to your microphone. While it listens, the title bar shows **Live** with the timer, and **Pause** (or **Resume**) and **Stop** next to it; the tray icon shows it too. If listening stops with an error, a notice says why and **Start listening** is offered again.
 * **Questions** (left): every question that is asked appears here, newest first, written out clearly. While someone is still speaking, the card says "Still listening…".
   * **Answer** asks your AI model. **Copy** copies the question. The chat icon sends it to your chat tabs.
   * The **⋯** menu: **Edit wording**, or **Not a question** to remove it.
@@ -20,8 +20,9 @@ ZHU listens to a conversation, writes down the questions that are asked, and hel
   * The model chip in the box at the bottom shows the model that answers and changes it. The same model answers in Custom chat.
   * **Auto-answer**: when on, every detected question is answered without pressing anything.
   * Answers are shown formatted: headings, lists, tables, highlighted code and formulas.
-  * The box at the bottom asks your own question. Enter sends; Shift+Enter starts a new line. The screen button on its left takes a screenshot of the whole screen and attaches it (for models that can read images). The capture is silent and leaves ZHU's own windows out of the picture.
-* **New session** starts a fresh, empty session.
+  * The box at the bottom ("Ask anything") asks your own question. Enter sends; Shift+Enter starts a new line. The screen button on its left takes a screenshot of the whole screen and attaches it (for models that can read images). The capture is silent and leaves ZHU's own windows out of the picture.
+* **New session** (the **+** next to Start listening, while nothing is being recorded) starts a fresh, empty session.
+* **Sizes:** drag the line between Questions and Answers to give either more width, and the line above the transcript to give it more or less height. The sizes are kept for the next start; double-click a line to go back to the original sizes. With the keyboard: Tab to a line, then the arrow keys (Page Up/Down for bigger steps, Enter for the original size). In a narrow window Questions and Answers are stacked instead.
 
 ## AI chats
 Sidebar → **AI chats** → **+**, then pick **Custom chat** or a site (or **Other website…**).
@@ -53,8 +54,9 @@ The icon stays for as long as ZHU is hidden and minimized. If something else hid
 ## Hide from the taskbar, Alt+Tab and screen capture
 The eye button in the title bar takes ZHU out of the taskbar, Alt+Tab, Task View and screen captures; press it again to put it back. The tray menu has the same switch (**Hide from taskbar, Alt+Tab and screen capture** / **Show in taskbar, Alt+Tab and screen capture**).
 
-* ZHU's windows stay on your screen where they are. Screenshots, recordings and screen sharing show what is behind them, as if ZHU were not there (Windows 10 version 2004 or later; older versions show a black rectangle). This covers the main window, the sidecar and the floating icon, not the tray menu or a "Save as" dialog.
-* While it is hidden, the main window stays on top of your other windows, because Alt+Tab and the taskbar can no longer bring it back from behind them. The sidecar still floats above the main window. When you show ZHU in the taskbar again, the main window is an ordinary window again.
+* ZHU's windows stay on your screen where they are. Screenshots, recordings and screen sharing show what is behind them, as if ZHU were not there (Windows 10 version 2004 or later; older versions show a black rectangle). This covers the main window and the floating icon, not the tray menu or a "Save as" dialog.
+* While it is hidden, the main window stays on top of your other windows, because Alt+Tab and the taskbar can no longer bring it back from behind them. When you show ZHU in the taskbar again, the main window is an ordinary window again.
+* Hiding ZHU sets its opacity to 80%, so you can see what is behind it. Change it with the opacity button as you like while it is hidden; showing ZHU again brings back the opacity you had before. Every time you hide ZHU it starts at 80% again.
 * To get it out of the way while hidden, minimize it: the floating icon brings it back, and so does the tray icon (click it, or **Show ZHU** in its menu).
 * It is off again every time ZHU starts.
 
@@ -63,8 +65,8 @@ While ZHU is hidden (the eye button), its own pointer is switched off and the st
 
 While the mouse is over a ZHU window, the pointer takes ZHU's own look: a violet arrow, the same arrow with a spark over anything you can click, and a matching beam over text. It is still your one Windows pointer, so it moves exactly as before; the moment it leaves ZHU it looks normal again. It covers the whole window: at the very edges, where you resize the window, the resize arrows are in the same style. Chat websites opened inside ZHU keep the normal pointer, because those pages are not ZHU's. Switch it off under Settings → App → **Custom pointer**.
 
-## Sidecar (floating window)
-A small always-on-top window with the live transcript and the latest question. Open it with the button in the title bar or **Ctrl+Shift+Space**. Drag it by its header; its settings button changes opacity and compact mode, and "click-through" lets mouse clicks pass through it (Ctrl+Shift+K turns that off again).
+## Opacity
+The opacity button in the title bar (next to the eye) makes ZHU see-through, from 40% to 100%. It applies to everything in ZHU: every screen with its menus and dialogs, the chat websites in AI chats, and the floating icon. **Back to 100%** in the same place makes ZHU solid again. Your choice is kept for the next start. While ZHU is hidden it has a level of its own (see above).
 
 ## Screenshots
 **Ctrl+Shift+A** captures the whole screen. A screenshot is attached to your chat-tab drafts, and to the ask box on Home when your model can read images.

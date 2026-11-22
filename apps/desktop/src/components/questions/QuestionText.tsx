@@ -22,7 +22,7 @@ export const QuestionText = memo(function QuestionText({ text, className, clamp 
 
 /**
  * KaTeX rendering of question.math_latex. KaTeX is loaded on demand, so windows
- * that never show math (for example the sidecar) never download it. Falls back to
+ * that never show math (for example the floating icon) never download it. Falls back to
  * the LaTeX source if it cannot be parsed.
  */
 export const MathBlock = memo(function MathBlock({ latex }: { latex: string }) {

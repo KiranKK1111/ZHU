@@ -447,7 +447,7 @@ function Composer({
               void submit();
             }
           }}
-          placeholder={model ? `Message ${model.label}` : "Connect a model to start"}
+          placeholder={model ? "Ask anything" : "Connect a model to start"}
           aria-label="Message"
           className="max-h-52 w-full resize-none bg-transparent px-4 pb-1 pt-3.5 text-body leading-relaxed text-fg placeholder:text-fg-3"
         />

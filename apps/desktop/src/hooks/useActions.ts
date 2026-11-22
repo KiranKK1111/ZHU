@@ -1,6 +1,6 @@
 /**
- * Shared user actions used by both the main window and the sidecar, so the logic
- * is never duplicated between them.
+ * Shared user actions (listening, screenshots, questions), used by every part of the main window
+ * that offers them, so the logic is never duplicated.
  */
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
@@ -176,10 +176,4 @@ export function useCaptureActions() {
   return { screen };
 }
 
-/** Open the main window on a screen (used from the sidecar). */
-export async function openInWorkspace(route: string, questionId?: string): Promise<void> {
-  const { broadcast } = await import("@/services/shell");
-  await broadcast("zhu://navigate", { route, questionId: questionId ?? null });
-  if (inTauri) await shell.showMain();
-}
 

@@ -267,7 +267,7 @@ function AskBox({ model }: { model: ProviderInfo }) {
               void send();
             }}
             rows={1}
-            placeholder={`Ask ${modelName} anything…`}
+            placeholder="Ask anything"
             aria-label="Your question"
             className="block max-h-[180px] min-h-[36px] w-full resize-none bg-transparent px-1.5 py-2 text-body leading-5 text-fg placeholder:text-fg-3 focus-visible:outline-none"
           />

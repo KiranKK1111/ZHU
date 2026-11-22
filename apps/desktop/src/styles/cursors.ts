@@ -132,6 +132,8 @@ function followAtEdges(root: HTMLElement): () => void {
   };
   const move = (e: PointerEvent) => {
     if (e.pointerType && e.pointerType !== "mouse") return hide();
+    // Over a resize bar (or while dragging one) the resize arrow is shown, not the page's arrow.
+    if ((e.target instanceof Element && e.target.closest("[data-split]")) || /zhu-resizing-/.test(root.className)) return hide();
     const kind = cursorKindFor(e.target instanceof Element ? e.target : null);
     const img = ZHU_CURSORS[kind];
     if (!reachesPastEdge(img, e.clientX, e.clientY, window.innerWidth, window.innerHeight)) return hide();
@@ -172,9 +174,19 @@ function followAtEdges(root: HTMLElement): () => void {
  */
 export function installZhuCursors(root: HTMLElement = document.documentElement): () => void {
   for (const kind of Object.keys(VARIABLES) as CursorKind[]) root.style.setProperty(VARIABLES[kind], ZHU_CURSORS[kind].css);
+  for (const [name, value] of Object.entries(RESIZE)) root.style.setProperty(name, value);
   const stopFollowing = followAtEdges(root);
   return () => {
     stopFollowing();
-    for (const name of Object.values(VARIABLES)) root.style.removeProperty(name);
+    for (const name of [...Object.values(VARIABLES), ...Object.keys(RESIZE)]) root.style.removeProperty(name);
   };
 }
+
+/**
+ * The bars that resize panes inside the window (components/primitives/SplitHandle) use ZHU's
+ * resize arrows, the same artwork the shell shows at the window's edges (public/cursors).
+ */
+const RESIZE: Record<string, string> = {
+  "--zhu-cursor-ew": 'url("/cursors/resize-ew.svg") 16 16, col-resize',
+  "--zhu-cursor-ns": 'url("/cursors/resize-ns.svg") 16 16, row-resize',
+};

@@ -25,23 +25,6 @@
         "shadow": true,
         "resizable": true,
         "visible": true
-      },
-      {
-        "label": "sidecar",
-        "title": "ZHU Sidecar",
-        "url": "index.html?window=sidecar",
-        "width": 360,
-        "height": 520,
-        "minWidth": 300,
-        "minHeight": 44,
-        "decorations": false,
-        "transparent": true,
-        "shadow": false,
-        "alwaysOnTop": true,
-        "skipTaskbar": true,
-        "resizable": true,
-        "visible": false,
-        "focus": false
       }
     ],
     "security": {

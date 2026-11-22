@@ -36,7 +36,11 @@ export function HideFromBarsButton() {
       .setHiddenFromBars(next)
       .then(() => {
         // Alt+Tab no longer reaches the window, so it stays in front instead: say so.
-        if (next) toast.info("Hidden from the taskbar, Alt+Tab and screen capture", "ZHU now stays on top of other windows and is left out of screenshots and screen sharing. Press the eye again to put it back.");
+        if (next)
+          toast.info(
+            "Hidden from the taskbar, Alt+Tab and screen capture",
+            "ZHU now stays on top of other windows, is left out of screenshots and screen sharing, and is 80% opaque (the opacity button changes that). Press the eye again to put it back.",
+          );
       })
       .catch((err) => toast.error("Could not change this", errorMessage(err)));
   };

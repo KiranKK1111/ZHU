@@ -2,7 +2,7 @@
 //!
 //! Windows decides the first two from one bit of a window's extended style: a "tool window" has no
 //! taskbar button and is left out of Alt+Tab and Task View. While the switch is on, every ZHU
-//! window (main, sidecar, floating icon) carries that bit. The windows stay on screen where they
+//! window (main, floating icon) carries that bit. The windows stay on screen where they
 //! were, ZHU stays in Task Manager, and the tray icon stays, which is the way back to a window
 //! that has been minimized.
 //!
@@ -15,15 +15,12 @@
 //! While ZHU is hidden this way its main window also stays on top of other windows: with no taskbar
 //! button and no Alt+Tab entry, a window that went behind others could only be found through the
 //! tray. If anything takes that away while ZHU is hidden, the hook below puts it back at once.
-//! The sidecar keeps its place above the main window, as when the main window is an
-//! ordinary one: both are then "always on top", and among such windows the one clicked last would
-//! otherwise cover the other.
 //!
 //! Three things make the taskbar part more than setting the bit once:
 //!   * The taskbar is only certain to notice the change on a window that is hidden at that moment,
 //!     so a visible window is hidden, changed and shown again (the order Windows documents).
 //!   * The window library writes the whole extended style again on most state changes (show, hide,
-//!     maximize, always on top, click-through), without the bit. A hook on the style change puts
+//!     maximize, always on top), without the bit. A hook on the style change puts
 //!     the bit back before the new style takes effect.
 //!   * Windows does not move a minimized tool window off screen: it leaves a small title-bar stub
 //!     at the bottom-left of the desktop. The same hook sends it to where minimized windows go.
@@ -39,14 +36,14 @@ static HIDDEN: AtomicBool = AtomicBool::new(false);
 static SHIELD: AtomicBool = AtomicBool::new(false);
 
 /// Every window ZHU has. The chat tabs are not windows of their own: they sit inside the main one.
-const LABELS: [&str; 3] = ["main", "sidecar", crate::bubble::LABEL];
+const LABELS: [&str; 2] = ["main", crate::bubble::LABEL];
 
 const WS_EX_TOOLWINDOW: u32 = 0x0000_0080;
 const WS_EX_APPWINDOW: u32 = 0x0004_0000;
 
 /// A window's extended style with ZHU hidden or shown; every other bit is kept. The window
-/// library gives all three windows the "app window" bit, so that is what "shown" restores (the
-/// sidecar and the floating icon stay off the taskbar through `skipTaskbar`, which is separate).
+/// library gives both windows the "app window" bit, so that is what "shown" restores (the
+/// floating icon stays off the taskbar through `skipTaskbar`, which is separate).
 fn ex_style(current: u32, hidden: bool) -> u32 {
     if hidden {
         (current | WS_EX_TOOLWINDOW) & !WS_EX_APPWINDOW
@@ -110,15 +107,12 @@ pub fn set_hidden(app: &AppHandle, hidden: bool) {
         if let Some(main) = handle.get_webview_window("main") {
             let _ = main.set_always_on_top(hidden);
         }
-        if hidden {
-            imp::raise_sidecar(); // becoming "always on top" put the main window above it
-        }
     });
 }
 
 #[cfg(windows)]
 mod imp {
-    use std::sync::atomic::{AtomicBool, AtomicIsize, Ordering};
+    use std::sync::atomic::{AtomicBool, Ordering};
 
     use tauri::WebviewWindow;
     use windows::core::BOOL;
@@ -127,8 +121,8 @@ mod imp {
     use windows::Win32::UI::Shell::{DefSubclassProc, RemoveWindowSubclass, SetWindowSubclass};
     use windows::Win32::UI::WindowsAndMessaging::{
         GetForegroundWindow, GetWindowLongPtrW, IsIconic, IsWindowVisible, SetForegroundWindow, SetWindowLongPtrW, SetWindowPos, ShowWindow, GWL_EXSTYLE, HWND_TOPMOST,
-        SET_WINDOW_POS_FLAGS, STYLESTRUCT, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, SWP_SHOWWINDOW, SW_HIDE, SW_SHOW, SW_SHOWNA, WINDOWPOS, WM_NCDESTROY,
-        WM_STYLECHANGING, WM_WINDOWPOSCHANGED, WM_WINDOWPOSCHANGING, WS_EX_TOPMOST,
+        STYLESTRUCT, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SW_HIDE, SW_SHOW, SW_SHOWNA, WINDOWPOS, WM_NCDESTROY, WM_STYLECHANGING, WM_WINDOWPOSCHANGED,
+        WM_WINDOWPOSCHANGING, WS_EX_TOPMOST,
     };
 
     use super::{ex_style, HIDDEN};
@@ -141,20 +135,10 @@ mod imp {
     /// Which window a hook is on (the hook's reference data).
     const OTHER: usize = 0;
     const MAIN: usize = 1;
-    const SIDECAR: usize = 2;
-    /// The sidecar's window handle, for the main window's hook; 0 while there is none.
-    static SIDECAR_HWND: AtomicIsize = AtomicIsize::new(0);
 
     pub fn install(window: &WebviewWindow) {
         let Ok(hwnd) = window.hwnd() else { return };
-        let role = match window.label() {
-            "main" => MAIN,
-            "sidecar" => SIDECAR,
-            _ => OTHER,
-        };
-        if role == SIDECAR {
-            SIDECAR_HWND.store(hwnd.0 as isize, Ordering::SeqCst);
-        }
+        let role = if window.label() == "main" { MAIN } else { OTHER };
         unsafe {
             let _ = SetWindowSubclass(hwnd, Some(subclass), SUBCLASS_ID, role);
         }
@@ -162,24 +146,6 @@ mod imp {
 
     unsafe fn is_topmost(hwnd: HWND) -> bool {
         unsafe { GetWindowLongPtrW(hwnd, GWL_EXSTYLE) as u32 & WS_EX_TOPMOST.0 != 0 }
-    }
-
-    /// The sidecar, when it is on screen and set to stay on top (its own setting can switch that off).
-    unsafe fn floating_sidecar() -> Option<HWND> {
-        let hwnd = HWND(SIDECAR_HWND.load(Ordering::SeqCst) as *mut _);
-        if hwnd.0.is_null() || !unsafe { IsWindowVisible(hwnd) }.as_bool() || !unsafe { is_topmost(hwnd) } {
-            return None;
-        }
-        Some(hwnd)
-    }
-
-    /// Put the sidecar in front of the other always-on-top windows, without giving it the focus.
-    pub fn raise_sidecar() {
-        unsafe {
-            if let Some(sidecar) = floating_sidecar() {
-                let _ = SetWindowPos(sidecar, Some(HWND_TOPMOST), 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
-            }
-        }
     }
 
     pub fn apply(window: &WebviewWindow, hidden: bool) {
@@ -228,23 +194,13 @@ mod imp {
                     }
                 }
             } else if msg == WM_WINDOWPOSCHANGING && lparam.0 != 0 {
-                unsafe { placing(hwnd, role, &mut *(lparam.0 as *mut WINDOWPOS)) };
-            } else if msg == WM_WINDOWPOSCHANGED && role == MAIN && lparam.0 != 0 {
-                // The main window got a new place among the windows; a click on it brings it to
-                // the front. Both it and the sidecar are "always on top" now, so that would cover
-                // the sidecar: the sidecar goes back in front. (Windows asks for the new place in
-                // more than one way, so this looks at the result and not at the request.)
+                unsafe { placing(hwnd, &mut *(lparam.0 as *mut WINDOWPOS)) };
+            } else if msg == WM_WINDOWPOSCHANGED && role == MAIN {
+                // The main window was moved or shown, or got a new place among the windows.
                 unsafe { keep_on_top(hwnd) };
-                let moved_in_the_stack = unsafe { (*(lparam.0 as *const WINDOWPOS)).flags.0 } & SWP_NOZORDER.0 == 0;
-                if moved_in_the_stack && unsafe { is_topmost(hwnd) } {
-                    raise_sidecar();
-                }
             }
         }
         if msg == WM_NCDESTROY {
-            if role == SIDECAR {
-                SIDECAR_HWND.store(0, Ordering::SeqCst);
-            }
             unsafe {
                 let _ = RemoveWindowSubclass(hwnd, Some(subclass), SUBCLASS_ID);
             }
@@ -271,19 +227,11 @@ mod imp {
 
     /// A window of a hidden ZHU is about to be moved or shown; `position` is what Windows is about
     /// to do and may be changed here.
-    unsafe fn placing(hwnd: HWND, role: usize, position: &mut WINDOWPOS) {
-        let flags = position.flags.0;
-        if unsafe { IsIconic(hwnd) }.as_bool() {
-            // Placed as a minimized window: off screen, not as a stub on the desktop.
-            if flags & SWP_NOMOVE.0 == 0 {
-                position.x = PARKED;
-                position.y = PARKED;
-            }
-        } else if role == SIDECAR && flags & SWP_SHOWWINDOW.0 != 0 && unsafe { is_topmost(hwnd) } {
-            // The sidecar is shown again. Windows would leave it where it was among the windows,
-            // which can be behind the main window; it comes up in front.
-            position.flags = SET_WINDOW_POS_FLAGS(flags & !SWP_NOZORDER.0);
-            position.hwndInsertAfter = HWND_TOPMOST;
+    unsafe fn placing(hwnd: HWND, position: &mut WINDOWPOS) {
+        // Placed as a minimized window: off screen, not as a stub on the desktop.
+        if unsafe { IsIconic(hwnd) }.as_bool() && position.flags.0 & SWP_NOMOVE.0 == 0 {
+            position.x = PARKED;
+            position.y = PARKED;
         }
     }
 }
@@ -293,7 +241,6 @@ mod imp {
     use tauri::WebviewWindow;
 
     pub fn install(_window: &WebviewWindow) {}
-    pub fn raise_sidecar() {}
 
     /// Elsewhere only the main window has a taskbar or dock entry to leave out.
     pub fn apply(window: &WebviewWindow, hidden: bool) {
@@ -309,12 +256,12 @@ mod tests {
 
     /// What the window library writes for a plain window: window edge + app window.
     const PLAIN: u32 = 0x0004_0100;
-    /// The sidecar with always-on-top and click-through: topmost, transparent, layered.
-    const SIDECAR: u32 = PLAIN | 0x0000_0008 | 0x0000_0020 | 0x0008_0000;
+    /// A window kept on top and see-through (the opacity control): topmost, layered.
+    const ON_TOP_SEE_THROUGH: u32 = PLAIN | 0x0000_0008 | 0x0008_0000;
 
     #[test]
     fn hiding_swaps_the_two_bits_and_keeps_the_rest() {
-        for style in [PLAIN, SIDECAR] {
+        for style in [PLAIN, ON_TOP_SEE_THROUGH] {
             let hidden = ex_style(style, true);
             assert_ne!(hidden & WS_EX_TOOLWINDOW, 0);
             assert_eq!(hidden & WS_EX_APPWINDOW, 0);
@@ -324,7 +271,7 @@ mod tests {
 
     #[test]
     fn showing_again_gives_back_the_style_it_had() {
-        for style in [PLAIN, SIDECAR] {
+        for style in [PLAIN, ON_TOP_SEE_THROUGH] {
             assert_eq!(ex_style(ex_style(style, true), false), style);
         }
     }
@@ -334,6 +281,6 @@ mod tests {
         // This is what the hook does with each new style: the result is the same however often.
         let once = ex_style(PLAIN, true);
         assert_eq!(ex_style(once, true), once);
-        assert_eq!(ex_style(SIDECAR, true), once | (SIDECAR & !PLAIN));
+        assert_eq!(ex_style(ON_TOP_SEE_THROUGH, true), once | (ON_TOP_SEE_THROUGH & !PLAIN));
     }
 }

@@ -27,9 +27,8 @@ Node 18 constrains front-end tooling: Vite 6 and Tailwind CSS 3.4 are used, beca
 |---|---|---|
 | Tauri 2 shell, windows, tray, global hotkeys, autostart, single instance | Fully supported | Official Tauri 2 plugins. |
 | Custom title bar with Windows Snap | Platform limitation | `decorations:false` + drag region keeps drag-to-edge snap, Win+Arrow, and double-click-maximize. The Windows 11 *Snap Layouts flyout* on hovering the maximize button is **not** available with custom chrome. |
-| Always-on-top sidecar, resize, opacity, edge snap, multi-monitor | Fully supported | Tauri window APIs; edge snap and off-screen recovery are implemented in ZHU code. |
-| Click-through sidecar | Supported, with a caveat | `set_ignore_cursor_events`. While it is active the sidecar cannot be clicked, so it is turned off with the global hotkey or the tray menu. |
-| Hide from the taskbar and Alt+Tab | Native Windows integration | Tauri's `skipTaskbar` only deletes the taskbar tab and leaves a window in Alt+Tab, so `bars.rs` sets the tool-window style on all three windows. It also keeps that style when the window library rewrites the extended style (show, hide, maximize, always on top, click-through), and parks a minimized window off screen, where Windows would otherwise leave a title-bar stub on the desktop. While hidden, the main window is always on top (nothing else could bring it back from behind other windows; the same hook sets that state again if something removes it), and the sidecar is put back in front of it whenever the main window moves in the stack or the sidecar is shown, since two always-on-top windows otherwise cover each other in click order. The windows stay visible on the user's screen and are left out of captures (the last row of this table); see `docs/SECURITY_PRIVACY.md` §4. |
+| Window opacity | Native Windows integration | `opacity.rs` makes ZHU's windows layered with one alpha value (`SetLayeredWindowAttributes`), so the transparency covers whole windows, the chat tabs' separate web views included. A hook keeps the layered style when the window library rewrites the extended style. 40–100% in the title bar; hiding ZHU starts it at 80%. |
+| Hide from the taskbar and Alt+Tab | Native Windows integration | Tauri's `skipTaskbar` only deletes the taskbar tab and leaves a window in Alt+Tab, so `bars.rs` sets the tool-window style on both windows (main, floating icon). It also keeps that style when the window library rewrites the extended style (show, hide, maximize, always on top), and parks a minimized window off screen, where Windows would otherwise leave a title-bar stub on the desktop. While hidden, the main window is always on top (nothing else could bring it back from behind other windows; the same hook sets that state again if something removes it). The windows stay visible on the user's screen and are left out of captures (the last row of this table); see `docs/SECURITY_PRIVACY.md` §4. |
 | Microphone capture | Fully supported | WASAPI through PyAudioWPatch. |
 | System audio (loopback) capture | Native Windows integration | WASAPI loopback through PyAudioWPatch. Per-application capture (`AUDIOCLIENT_ACTIVATION_TYPE_PROCESS_LOOPBACK`, Win10 2004+) is **not** implemented; see §8. |
 | Local STT on GPU | Requires hardware benchmarking | faster-whisper / CTranslate2 with CUDA 12 + cuDNN 9 pip wheels. RTX 50 (Blackwell, sm_120) support is verified by `engine/benchmarks/stt_benchmark.py`; results are in `docs/BENCHMARKS.md`. |
@@ -46,7 +45,7 @@ Node 18 constrains front-end tooling: Vite 6 and Tailwind CSS 3.4 are used, beca
 | AI chat tabs (embedded provider websites) | Supported; depends on each website | Provider sites cannot be framed (`X-Frame-Options` / CSP `frame-ancestors`), so each tab is a native child webview of the main window (Tauri `unstable` multi-webview) with a shared profile. ZHU fills the message box and attaches screenshots; it never signs in or submits. Sites change without notice, and some refuse sign-in in embedded browsers. Tested signed-out only; see `docs/WEB_CHATS.md`. |
 | Credentials | Fully supported | Windows Credential Manager through `keyring`. Credentials are never written to SQLite or to logs. |
 | Capture-exclusion "privacy mode" | Native Windows integration | Part of the hide switch: while ZHU is hidden, `bars.rs` sets the display affinity "exclude from capture" on all three windows (Tauri `set_content_protected`), and for the moment of a screenshot ZHU takes itself. Windows 10 2004 or later. See `docs/SECURITY_PRIVACY.md` §4 for the limits. |
-| Installer `ZHU-Setup.exe` | Fully supported (built and tested) | Tauri NSIS bundler with a PyInstaller one-folder engine as a resource: 882 MB. The CUDA libraries are compressed once at build time and unpacked by the installer (see INSTALLATION.md §3). NSIS has a ~2 GB data limit, so only the CUDA DLLs proven necessary are bundled (see packaging/zhu-engine.spec). Model weights download once on first run. |
+| Installer `ZHU-Setup.exe` | Fully supported (built and tested) | Tauri NSIS bundler with a PyInstaller one-folder engine as a resource: 880 MB. The CUDA libraries are compressed once at build time and unpacked by the installer (see INSTALLATION.md §3). NSIS has a ~2 GB data limit, so only the CUDA DLLs proven necessary are bundled (see packaging/zhu-engine.spec). Model weights download once on first run. |
 | Code signing | Requires a certificate | A plan is in `docs/INSTALLATION.md`. Builds produced here are unsigned. |
 
 ## 3. Process model
@@ -54,7 +53,7 @@ Node 18 constrains front-end tooling: Vite 6 and Tailwind CSS 3.4 are used, beca
 ```text
 ┌─────────────────────────────── zhu.exe: one process ───────────────────────────────┐
 │  Rust (Tauri 2)                                                                     │
-│    Window manager: main · sidecar · floating icon                                   │
+│    Window manager: main · floating icon · opacity                                   │
 │    Tray · global shortcuts · autostart · single-instance · window state             │
 │    EngineSupervisor (engine.rs): owns the token, starts / restarts / stops          │
 │      the engine; embedded.rs loads the Python runtime when the engine first starts  │
@@ -73,8 +72,8 @@ Node 18 constrains front-end tooling: Vite 6 and Tailwind CSS 3.4 are used, beca
 * **Restarting in place.** The interpreter is started once and kept. Each start of the engine is a new run inside it that closes what it opened (database, log files, the server's socket). An engine that does not stop when asked cannot be replaced in the same process; the window then offers **Restart ZHU**.
 * `zhu-engine.exe` is still installed: the installer runs it once to unpack the NVIDIA libraries (§3, INSTALLATION.md), and the build smoke-tests it. The app never starts it.
 
-* The engine is the **single source of truth** for session, transcript, question, screenshot, and provider state. The main window and the sidecar both subscribe to the same WebSocket stream, so they cannot drift apart.
-* UI-only preferences (theme, sidebar state, sidecar opacity) live in the front-end preference store. They are broadcast between windows with Tauri events.
+* The engine is the **single source of truth** for session, transcript, question, screenshot, and provider state. The main window subscribes to its WebSocket stream and replays missed events after a reconnect, so it cannot drift from the engine.
+* UI-only preferences (theme, sidebar state, window opacity) live in the front-end preference store. They are broadcast between windows with Tauri events.
 
 ### Local IPC hardening
 
@@ -91,7 +90,7 @@ ZHU/
 ├── apps/desktop/                  Tauri 2 + React desktop application
 │   ├── src/                       React front end (one bundle, three window roots)
 │   │   ├── app/                   window roots, routing, state stores, providers
-│   │   ├── components/            primitives · layout · transcription · questions · capture · composer · sidecar · setup
+│   │   ├── components/            primitives · layout · transcription · questions · capture · composer · setup
 │   │   ├── features/              the four screens (home, webchat, history, settings)
 │   │   ├── hooks/ services/ styles/ types/ utils/
 │   └── src-tauri/                 Rust shell (windows, tray, hotkeys, the in-process engine, web chat tabs + page helper)

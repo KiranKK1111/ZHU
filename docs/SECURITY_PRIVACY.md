@@ -21,8 +21,8 @@
 
 ## 2. Recording controls and consent
 
-* Audio capture starts only when you press **Start listening** (or use the tray menu or the hotkey you configured). It stops when you pause, stop, end the session, or quit, and when the desktop process exits (parent watchdog).
-* While listening, the recording state is shown in text, not only by color: "● Live", "Paused", or "Not recording" in the title bar, the sidecar header and footer, and the tray tooltip. The status is also announced through `aria-live`.
+* Audio capture starts only when you press **Start listening** in the title bar (or use the tray menu or the hotkey you configured). It stops when you pause, stop, end the session, or quit; the engine runs inside ZHU's process, so it cannot outlive it.
+* While listening, the recording state is shown in text, not only by color: "● Live" or "Paused", with the time, in the title bar on every screen, next to Pause and Stop. When nothing is recorded the title bar offers **Start listening** instead. The tray tooltip says "Recording", "Recording paused" or "Not recording". The status is also announced through `aria-live`.
 * You are responsible for obtaining the consent that applicable law and meeting rules require before you transcribe other participants. ZHU is intended for mock interviews, preparation, and meetings where transcription or assistance is permitted.
 
 ## 3. Local IPC hardening
@@ -66,19 +66,19 @@ Limits of capture exclusion:
 
 * It needs Windows 10 version 2004 or later. Older versions show a black rectangle in the capture where the window is.
 * It covers what Windows composes for a capture. It does nothing about a camera or a second person looking at the screen, and remote-control tools that read the display in other ways are not guaranteed to honor it.
-* It covers ZHU's three windows (main with its chat tabs, sidecar, floating icon). Windows that belong to the system and are opened from ZHU, such as the tray menu and the "Save as" dialog of an export, are not covered.
+* It covers ZHU's two windows (main with its chat tabs, floating icon). Windows that belong to the system and are opened from ZHU, such as the tray menu and the "Save as" dialog of an export, are not covered.
 * The tray icon stays, and so does the taskbar's overflow area that holds it.
 
-ZHU uses no process hiding, and it does not try to evade security tools: ZHU stays in Task Manager (one process, `zhu.exe`, which runs the engine inside it). The sidecar uses `skipTaskbar`, the standard behavior for a floating palette, and it remains an ordinary top-level window of the visible ZHU process.
+ZHU uses no process hiding, and it does not try to evade security tools: ZHU stays in Task Manager (one process, `zhu.exe`, which runs the engine inside it). The floating icon uses `skipTaskbar`, the standard behavior for a floating palette, and it remains an ordinary top-level window of the visible ZHU process.
 
 ### Hide from the taskbar, Alt+Tab and screen capture
 
 The eye button in the title bar, and the same entry in the tray menu, hide ZHU and put it back. It is off at every start and is not saved. While it is on:
 
-* **ZHU is not in the taskbar, Alt+Tab or Task View.** Its three windows (main, sidecar, floating icon) carry the Windows "tool window" style, which is the documented way to leave a window out of those lists.
+* **ZHU is not in the taskbar, Alt+Tab or Task View.** Its two windows (main, floating icon) carry the Windows "tool window" style, which is the documented way to leave a window out of those lists.
 * **ZHU is not in screen captures**, as described above. The windows stay on your own screen where they are.
 * **The main window stays on top of other windows.** With no taskbar button and no Alt+Tab entry, a window behind others could only be reached through the tray. If another program takes the "always on top" state away, ZHU sets it again at once. System surfaces that Windows always draws above applications (the Start menu, the lock screen, a permission prompt) still cover it, and so does another always-on-top window that you click afterwards.
-* **The process is not hidden.** ZHU (`zhu.exe`) stays in Task Manager, and the tray icon stays. The recording state is still shown in the title bar, the sidecar and the tray tooltip (§2).
+* **The process is not hidden.** ZHU (`zhu.exe`) stays in Task Manager, and the tray icon stays. The recording state is still shown in the title bar and the tray tooltip (§2). Hiding ZHU also sets its opacity to 80%; that changes only how ZHU looks on your screen.
 
 The consent rules in §2 apply whether or not ZHU is hidden: other participants cannot see from a shared screen that ZHU is in use, so telling them is up to you.
 

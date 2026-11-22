@@ -1,87 +1,71 @@
-import { useQuery } from "@tanstack/react-query";
-import { AudioLines, CircleHelp, CircleStop, Eraser, Mic, Pause, Play, Plus } from "lucide-react";
-import { useMemo, useState } from "react";
-import { qk } from "@/app/providers/queryKeys";
-import { usePrefs } from "@/app/state/prefs";
+import { AudioLines, CircleHelp, Eraser } from "lucide-react";
+import { useMemo, useRef, useState, type CSSProperties } from "react";
+import { DEFAULT_PREFS, usePrefs } from "@/app/state/prefs";
 import { sortedQuestions, useQuestions } from "@/app/state/questions";
 import { useSession } from "@/app/state/session";
 import { useTranscript } from "@/app/state/transcript";
-import { toast, useNav } from "@/app/state/ui";
+import { toast } from "@/app/state/ui";
 import { Button } from "@/components/primitives/Button";
 import { ConfirmDialog } from "@/components/primitives/Dialog";
 import { EmptyState } from "@/components/primitives/Display";
+import { SplitHandle, type SplitLimits } from "@/components/primitives/SplitHandle";
 import { QuestionCard } from "@/components/questions/QuestionCard";
 import { TranscriptView } from "@/components/transcription/TranscriptView";
-import { useListeningActions } from "@/hooks/useActions";
 import { api } from "@/services/engine";
-import { cn } from "@/utils/cn";
 import { errorMessage } from "@/utils/format";
 import { AnswerPanel } from "./AnswerPanel";
 
+/** Questions next to answers: neither narrower than this, whatever the window. */
+const COLUMN_LIMITS: SplitLimits = { min: 0.25, max: 0.75, minPx: 300 };
+/** The transcript under the questions. */
+const TRANSCRIPT_LIMITS: SplitLimits = { min: 0.12, max: 0.8, minPx: 110 };
+
 /**
- * Home: everything you need during a conversation on one screen.
- * Top: one button to listen. Left: the questions ZHU heard. Right: the AI's answers.
+ * A pane size the user drags: saved in the preferences when the drag ends, followed live while it
+ * goes on (without writing the preferences on every move).
  */
-export default function HomeScreen() {
-  return (
-    <div className="flex h-full flex-col">
-      <ListeningBar />
-      <div className="grid min-h-0 flex-1 grid-cols-1 @3xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-        <QuestionsPane />
-        <AnswerPanel />
-      </div>
-    </div>
-  );
+function useSplit(key: "homeSplit" | "transcriptSplit") {
+  const saved = usePrefs((p) => p[key]);
+  const set = usePrefs((p) => p.set);
+  const [live, setLive] = useState<number | null>(null);
+  return {
+    value: live ?? saved,
+    onChange: setLive,
+    onCommit: (share: number) => {
+      set({ [key]: share });
+      setLive(null);
+    },
+    onReset: () => {
+      set({ [key]: DEFAULT_PREFS[key] });
+      setLive(null);
+    },
+  };
 }
 
-function ListeningBar() {
-  const listening = useSession((s) => s.listening);
-  const sessionId = useSession((s) => s.currentSessionId);
-  const actions = useListeningActions();
-  const models = useQuery({ queryKey: qk.models, queryFn: api.models, staleTime: 60_000 });
-  const setSetupOpen = useNav((s) => s.setSetupOpen);
-  const state = listening?.state ?? "idle";
-  const live = state === "listening" || state === "paused";
-  const noModel = !!models.data?.setup_required;
-
+/**
+ * Home: everything you need during a conversation on one screen. Left: the questions ZHU heard.
+ * Right: the AI's answers. The bar between them, and the one above the transcript, can be dragged.
+ * Listening itself is started and stopped in the title bar, which every screen has.
+ */
+export default function HomeScreen() {
+  const columns = useRef<HTMLDivElement>(null);
+  const split = useSplit("homeSplit");
+  // Side by side only when there is room (a container query); narrower, the two are stacked.
+  const shares = { "--zhu-questions": `${split.value}fr`, "--zhu-answers": `${1 - split.value}fr` } as CSSProperties;
   return (
-    <div className="flex shrink-0 flex-wrap items-center gap-3 border-b border-border-subtle px-5 py-3">
-      {noModel ? (
-        <Button size="lg" variant="primary" icon={<Mic className="h-4 w-4" />} onClick={() => setSetupOpen(true)}>
-          Set up speech recognition
-        </Button>
-      ) : state === "listening" ? (
-        <Button size="lg" variant="secondary" icon={<Pause className="h-4 w-4" />} onClick={() => void actions.pause()}>
-          Pause
-        </Button>
-      ) : state === "paused" ? (
-        <Button size="lg" variant="primary" icon={<Play className="h-4 w-4" />} onClick={() => void actions.resume()}>
-          Resume
-        </Button>
-      ) : (
-        <Button size="lg" variant="primary" icon={<Play className="h-4 w-4" />} loading={state === "loading_model"} onClick={() => void actions.start()}>
-          {state === "loading_model" ? "Getting ready…" : "Start listening"}
-        </Button>
-      )}
-      {live ? (
-        <Button size="lg" variant="ghost" icon={<CircleStop className="h-4 w-4" />} onClick={() => void actions.stop()}>
-          Stop
-        </Button>
-      ) : null}
-      <p className={cn("min-w-0 flex-1 truncate text-secondary", state === "error" ? "text-danger" : "text-fg-3")} role={state === "error" ? "alert" : undefined}>
-        {state === "error"
-          ? listening?.message
-          : noModel
-            ? "Download a speech model once. It runs on this computer."
-            : live
-              ? "Questions appear on the left as they are asked."
-              : "ZHU listens to your call and microphone, and picks out the questions."}
-      </p>
-      {!live && sessionId ? (
-        <Button variant="ghost" icon={<Plus className="h-4 w-4" />} onClick={() => void actions.newSession()} title="Start a fresh, empty session">
-          New session
-        </Button>
-      ) : null}
+    <div className="flex h-full flex-col">
+      <div ref={columns} style={shares} className="grid min-h-0 flex-1 grid-cols-1 @3xl:grid-cols-[minmax(0,var(--zhu-questions))_auto_minmax(0,var(--zhu-answers))]">
+        <QuestionsPane />
+        <SplitHandle
+          direction="columns"
+          label="Width of the questions and the answers"
+          containerRef={columns}
+          limits={COLUMN_LIMITS}
+          className="hidden @3xl:block"
+          {...split}
+        />
+        <AnswerPanel />
+      </div>
     </div>
   );
 }
@@ -99,6 +83,8 @@ function QuestionsPane() {
   const sessionId = useSession((s) => s.currentSessionId);
   const [clearing, setClearing] = useState(false);
   const [clearingQuestions, setClearingQuestions] = useState(false);
+  const pane = useRef<HTMLElement>(null);
+  const transcriptSplit = useSplit("transcriptSplit");
 
   /** Take every question off the list. The engine sends one update per question, which empties the list in every window. */
   const clearQuestions = async () => {
@@ -124,7 +110,7 @@ function QuestionsPane() {
   };
 
   return (
-    <section aria-label="Questions" className="flex min-h-0 flex-col border-border-subtle @3xl:border-r">
+    <section ref={pane} aria-label="Questions" className="flex min-h-0 flex-col">
       <div className="flex h-11 shrink-0 items-center gap-2 px-5">
         <h2 className="text-card text-fg">Questions</h2>
         {questions.length ? <span className="text-caption tabular-nums text-fg-3">{questions.length}</span> : null}
@@ -146,12 +132,15 @@ function QuestionsPane() {
           <EmptyState
             icon={<CircleHelp className="h-5 w-5" />}
             title={live ? "Listening for questions…" : "No questions yet"}
-            description={live ? "When someone asks a question, it appears here, written out clearly." : "Press Start listening. Every question that is asked will be collected here."}
+            description={live ? "When someone asks a question, it appears here, written out clearly." : "Press Start listening at the top. Every question that is asked will be collected here."}
           />
         )}
       </div>
       {showTranscript ? (
-        <div className="flex h-[34%] min-h-[120px] shrink-0 flex-col border-t border-border-subtle">
+        <SplitHandle direction="rows" label="Height of the transcript" containerRef={pane} limits={TRANSCRIPT_LIMITS} {...transcriptSplit} />
+      ) : null}
+      {showTranscript ? (
+        <div style={{ height: `${transcriptSplit.value * 100}%` }} className="flex min-h-[110px] shrink-0 flex-col">
           <div className="flex h-9 shrink-0 items-center justify-between pl-5 pr-3">
             <h3 className="text-caption font-semibold uppercase tracking-[0.06em] text-fg-3">Transcript</h3>
             <Button size="sm" variant="ghost" icon={<Eraser className="h-3.5 w-3.5" />} disabled={!transcript.length || !sessionId} onClick={() => setClearing(true)} title="Delete everything transcribed in this session so far">

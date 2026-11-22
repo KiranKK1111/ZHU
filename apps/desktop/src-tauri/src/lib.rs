@@ -1,9 +1,8 @@
 //! ZHU desktop shell (Tauri 2).
 //!
-//! Responsibilities: window management (main, sidecar), system tray,
+//! Responsibilities: window management (main window, floating icon), system tray,
 //! global hotkeys, autostart, single instance, the processing engine (which runs inside this
-//! process: engine.rs supervises it, embedded.rs loads it), sidecar edge snapping and off-screen
-//! recovery, the switch that takes ZHU out of the taskbar, Alt+Tab and
+//! process: engine.rs supervises it, embedded.rs loads it), how see-through ZHU is (opacity.rs), the switch that takes ZHU out of the taskbar, Alt+Tab and
 //! screen captures (bars.rs), and the embedded web chat tabs (webchat.rs). Everything here uses
 //! documented Tauri and Windows behavior. The app stays an ordinary, visible process: no process
 //! hiding. With the hide switch on, its windows are still on the user's screen, on top of other
@@ -14,8 +13,8 @@ mod bubble;
 /// Public for examples/embedded_check.rs, which packaging/build.ps1 runs against a fresh engine.
 pub mod embedded;
 mod engine;
+mod opacity;
 mod resize_cursor;
-mod sidecar;
 mod webchat;
 
 use engine::{EngineInfo, EngineSupervisor};
@@ -28,21 +27,17 @@ use tauri::tray::{MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, Tray
 use tauri::{AppHandle, Emitter, Manager, WindowEvent};
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
 
-pub const HOTKEY_ACTIONS: [&str; 5] = [
-    "toggle_sidecar",
+pub const HOTKEY_ACTIONS: [&str; 3] = [
     "toggle_listening",
     "capture_screen",
     "copy_latest_question",
-    "toggle_click_through",
 ];
 
 fn default_hotkeys() -> HashMap<String, String> {
     [
-        ("toggle_sidecar", "CommandOrControl+Shift+Space"),
         ("toggle_listening", "CommandOrControl+Shift+L"),
         ("capture_screen", "CommandOrControl+Shift+A"),
         ("copy_latest_question", "CommandOrControl+Shift+C"),
-        ("toggle_click_through", "CommandOrControl+Shift+K"),
     ]
     .into_iter()
     .map(|(a, k)| (a.to_string(), k.to_string()))
@@ -52,7 +47,6 @@ fn default_hotkeys() -> HashMap<String, String> {
 pub struct AppState {
     pub engine: Arc<EngineSupervisor>,
     pub close_to_tray: AtomicBool,
-    pub click_through: AtomicBool,
     pub quitting: AtomicBool,
     /// Show the floating icon while the main window is minimized (a preference, on by default).
     pub minimize_bubble: AtomicBool,
@@ -68,7 +62,6 @@ pub struct AppState {
 
 pub struct TrayItems {
     listening: MenuItem<tauri::Wry>,
-    click_through: MenuItem<tauri::Wry>,
     hidden_from_bars: MenuItem<tauri::Wry>,
 }
 
@@ -159,29 +152,10 @@ fn show_main(app: AppHandle) {
     show_main_window(&app);
 }
 
+/// How see-through every ZHU window is, from 0 to 1 (see opacity.rs).
 #[tauri::command]
-fn show_sidecar(app: AppHandle) {
-    if let Some(w) = app.get_webview_window("sidecar") {
-        sidecar::ensure_visible_on_screen(&w);
-        let _ = w.show();
-    }
-}
-
-#[tauri::command]
-fn hide_sidecar(app: AppHandle) {
-    if let Some(w) = app.get_webview_window("sidecar") {
-        let _ = w.hide();
-    }
-}
-
-#[tauri::command]
-fn toggle_sidecar(app: AppHandle) {
-    toggle_sidecar_window(&app);
-}
-
-#[tauri::command]
-fn set_click_through(app: AppHandle, enabled: bool) -> Result<(), String> {
-    apply_click_through(&app, enabled)
+fn set_window_opacity(app: AppHandle, opacity: f64) {
+    opacity::set(&app, opacity);
 }
 
 /// Take ZHU out of the taskbar, Alt+Tab and screen captures, or put it back (see bars.rs).
@@ -194,12 +168,6 @@ fn set_hidden_from_bars(app: AppHandle, hidden: bool) {
 #[tauri::command]
 fn hidden_from_bars() -> bool {
     bars::is_hidden()
-}
-
-#[tauri::command]
-fn set_sidecar_always_on_top(app: AppHandle, enabled: bool) -> Result<(), String> {
-    let w = app.get_webview_window("sidecar").ok_or("sidecar window missing")?;
-    w.set_always_on_top(enabled).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -324,32 +292,6 @@ fn show_main_window(app: &AppHandle) {
     }
 }
 
-fn toggle_sidecar_window(app: &AppHandle) {
-    if let Some(w) = app.get_webview_window("sidecar") {
-        if w.is_visible().unwrap_or(false) {
-            let _ = w.hide();
-        } else {
-            sidecar::ensure_visible_on_screen(&w);
-            let _ = w.show();
-        }
-    }
-}
-
-fn apply_click_through(app: &AppHandle, enabled: bool) -> Result<(), String> {
-    let w = app.get_webview_window("sidecar").ok_or("sidecar window missing")?;
-    w.set_ignore_cursor_events(enabled).map_err(|e| e.to_string())?;
-    let st = app.state::<AppState>();
-    st.click_through.store(enabled, Ordering::SeqCst);
-    {
-        let items_guard = st.tray_items.lock().unwrap();
-        if let Some(items) = items_guard.as_ref() {
-            let _ = items.click_through.set_text(if enabled { "Disable sidecar click-through" } else { "Enable sidecar click-through" });
-        }
-    }
-    let _ = app.emit("zhu://click-through", enabled);
-    Ok(())
-}
-
 const HIDE_FROM_BARS: &str = "Hide from taskbar, Alt+Tab and screen capture";
 const SHOW_IN_BARS: &str = "Show in taskbar, Alt+Tab and screen capture";
 
@@ -417,15 +359,8 @@ fn register_hotkeys(app: &AppHandle, map: &HashMap<String, String>) -> HashMap<S
     result
 }
 
+/// Every shortcut is carried out by the main window's page.
 fn handle_hotkey(app: &AppHandle, action: &str) {
-    match action {
-        "toggle_sidecar" => toggle_sidecar_window(app),
-        "toggle_click_through" => {
-            let on = !app.state::<AppState>().click_through.load(Ordering::SeqCst);
-            let _ = apply_click_through(app, on);
-        }
-        _ => {}
-    }
     #[derive(Serialize, Clone)]
     struct Payload<'a> {
         action: &'a str,
@@ -435,17 +370,15 @@ fn handle_hotkey(app: &AppHandle, action: &str) {
 
 fn build_tray(app: &AppHandle) -> tauri::Result<()> {
     let show = MenuItem::with_id(app, "show", "Show ZHU", true, None::<&str>)?;
-    let sidecar = MenuItem::with_id(app, "sidecar", "Show / hide sidecar", true, None::<&str>)?;
     let hide_bars = MenuItem::with_id(app, "hidden_from_bars", HIDE_FROM_BARS, true, None::<&str>)?;
     let listening = MenuItem::with_id(app, "listening", "Start listening", true, None::<&str>)?;
     let new_session = MenuItem::with_id(app, "new_session", "New session", true, None::<&str>)?;
-    let click = MenuItem::with_id(app, "click_through", "Enable sidecar click-through", true, None::<&str>)?;
     let settings = MenuItem::with_id(app, "settings", "Settings", true, None::<&str>)?;
     let restart_engine = MenuItem::with_id(app, "restart_engine", "Restart the engine", true, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", "Quit ZHU", true, None::<&str>)?;
     let sep1 = PredefinedMenuItem::separator(app)?;
     let sep2 = PredefinedMenuItem::separator(app)?;
-    let menu = Menu::with_items(app, &[&show, &sidecar, &hide_bars, &sep1, &listening, &new_session, &click, &settings, &sep2, &restart_engine, &quit])?;
+    let menu = Menu::with_items(app, &[&show, &hide_bars, &sep1, &listening, &new_session, &settings, &sep2, &restart_engine, &quit])?;
 
     let tray = TrayIconBuilder::with_id("zhu")
         .icon(app.default_window_icon().cloned().expect("app icon missing"))
@@ -459,7 +392,6 @@ fn build_tray(app: &AppHandle) -> tauri::Result<()> {
             }
             match event.id().as_ref() {
                 "show" => show_main_window(app),
-                "sidecar" => toggle_sidecar_window(app),
                 "hidden_from_bars" => apply_hidden_from_bars(app, !bars::is_hidden()),
                 "listening" => {
                     let _ = app.emit("zhu://tray", Payload { action: "toggle_listening" });
@@ -471,10 +403,6 @@ fn build_tray(app: &AppHandle) -> tauri::Result<()> {
                 "settings" => {
                     show_main_window(app);
                     let _ = app.emit("zhu://tray", Payload { action: "open_settings" });
-                }
-                "click_through" => {
-                    let on = !app.state::<AppState>().click_through.load(Ordering::SeqCst);
-                    let _ = apply_click_through(app, on);
                 }
                 "restart_engine" => {
                     let handle = app.clone();
@@ -497,7 +425,7 @@ fn build_tray(app: &AppHandle) -> tauri::Result<()> {
 
     let st = app.state::<AppState>();
     *st.tray.lock().unwrap() = Some(tray);
-    *st.tray_items.lock().unwrap() = Some(TrayItems { listening, click_through: click, hidden_from_bars: hide_bars });
+    *st.tray_items.lock().unwrap() = Some(TrayItems { listening, hidden_from_bars: hide_bars });
     Ok(())
 }
 
@@ -542,7 +470,6 @@ pub fn run() {
         .manage(AppState {
             engine: supervisor.clone(),
             close_to_tray: AtomicBool::new(true),
-            click_through: AtomicBool::new(false),
             quitting: AtomicBool::new(false),
             minimize_bubble: AtomicBool::new(true),
             recording: AtomicU8::new(0),
@@ -558,13 +485,9 @@ pub fn run() {
             restart_engine,
             restart_app,
             show_main,
-            show_sidecar,
-            hide_sidecar,
-            toggle_sidecar,
-            set_click_through,
             set_hidden_from_bars,
             hidden_from_bars,
-            set_sidecar_always_on_top,
+            set_window_opacity,
             set_tray_state,
             set_close_to_tray,
             set_minimize_bubble,
@@ -588,17 +511,14 @@ pub fn run() {
             build_tray(&handle)?;
             register_hotkeys(&handle, &default_hotkeys());
             supervisor.start_at_launch(&handle);
-            if let Some(sc) = app.get_webview_window("sidecar") {
-                sidecar::install(&sc);
-            }
             bubble::start_watchdog(app.handle());
-            // ZHU's own resize cursors at the edges of its resizable windows, and the hook behind
-            // the taskbar switch (the floating icon gets its hook when it is made, in bubble.rs).
-            for label in ["main", "sidecar"] {
-                if let Some(w) = app.get_webview_window(label) {
-                    resize_cursor::install(&w);
-                    bars::install(&w);
-                }
+            // ZHU's own resize cursors at the edges of the main window, and the hooks behind the
+            // taskbar switch and the opacity control (the floating icon gets its hooks when it is
+            // made, in bubble.rs).
+            if let Some(w) = app.get_webview_window("main") {
+                resize_cursor::install(&w);
+                bars::install(&w);
+                opacity::install(&w);
             }
             if started_minimized {
                 if let Some(main) = app.get_webview_window("main") {
@@ -637,10 +557,6 @@ pub fn run() {
                         // Closing it quits ZHU (close-to-tray is off, or ZHU is quitting already).
                         api.prevent_close();
                         quit_app(app);
-                    }
-                    "sidecar" => {
-                        api.prevent_close();
-                        let _ = window.hide();
                     }
                     _ => {}
                 }

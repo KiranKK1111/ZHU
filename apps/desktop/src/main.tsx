@@ -4,10 +4,9 @@ import { AppProviders } from "@/app/providers/AppProviders";
 import { windowKind } from "@/services/shell";
 import "@/styles/globals.css";
 
-// One bundle, three window roots. Each window loads only its own root.
+// One bundle, two window roots. Each window loads only its own root.
 const ROOTS = {
   main: lazy(() => import("@/app/windows/MainApp")),
-  sidecar: lazy(() => import("@/app/windows/SidecarApp")),
   bubble: lazy(() => import("@/app/windows/BubbleApp")),
 };
 

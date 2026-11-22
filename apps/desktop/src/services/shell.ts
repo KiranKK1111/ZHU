@@ -14,13 +14,13 @@ export function windowKind(): WindowKind {
   if (inTauri) {
     try {
       const label = getCurrentWindow().label;
-      if (label === "sidecar" || label === "bubble" || label === "main") return label;
+      if (label === "bubble" || label === "main") return label;
     } catch {
       /* fall through to query parameter */
     }
   }
   const q = new URLSearchParams(window.location.search).get("window");
-  return q === "sidecar" || q === "bubble" ? q : "main";
+  return q === "bubble" ? "bubble" : "main";
 }
 
 async function call<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
@@ -34,14 +34,11 @@ export const shell = {
   /** Start ZHU again (the way out when the engine is stuck). */
   restartApp: () => call<void>("restart_app"),
   showMain: () => call<void>("show_main"),
-  showSidecar: () => call<void>("show_sidecar"),
-  hideSidecar: () => call<void>("hide_sidecar"),
-  toggleSidecar: () => call<void>("toggle_sidecar"),
-  setClickThrough: (enabled: boolean) => call<void>("set_click_through", { enabled }),
   /** Take ZHU out of the taskbar, Alt+Tab and screen captures, or put it back (see bars.rs). Off at every start. */
   setHiddenFromBars: (hidden: boolean) => call<void>("set_hidden_from_bars", { hidden }),
   hiddenFromBars: () => call<boolean>("hidden_from_bars"),
-  setSidecarAlwaysOnTop: (enabled: boolean) => call<void>("set_sidecar_always_on_top", { enabled }),
+  /** How see-through every ZHU window is, 0 to 1 (Windows' own transparency: covers the chat tabs too). */
+  setWindowOpacity: (opacity: number) => call<void>("set_window_opacity", { opacity }),
   setTrayState: (recording: boolean, paused: boolean) => call<void>("set_tray_state", { recording, paused }),
   /** Leave ZHU's own windows out of a capture that is about to be taken (see lib.rs). */
   captureShield: (on: boolean) => call<void>("capture_shield", { on }),

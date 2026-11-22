@@ -10,7 +10,7 @@ use std::sync::atomic::Ordering;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
-use tauri::{AppHandle, Emitter, LogicalSize, Manager, PhysicalPosition, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
+use tauri::{AppHandle, Emitter, LogicalSize, Manager, Monitor, PhysicalPosition, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
 
 use crate::AppState;
 
@@ -158,11 +158,43 @@ fn window(app: &AppHandle) -> Option<WebviewWindow> {
         .visible(false)
         .build()
         .ok()?;
-    // The hook behind the taskbar switch goes on from the thread that owns the window. It runs
-    // before the first show, so an icon made while ZHU is hidden never appears in Alt+Tab.
+    // The hooks behind the taskbar switch and the opacity control go on from the thread that owns
+    // the window. They run before the first show, so an icon made while ZHU is hidden never appears
+    // in Alt+Tab, and one made while ZHU is see-through is see-through from the start.
     let hooked = window.clone();
-    let _ = window.run_on_main_thread(move || crate::bars::install(&hooked));
+    let _ = window.run_on_main_thread(move || {
+        crate::bars::install(&hooked);
+        crate::opacity::install(&hooked);
+    });
     Some(window)
+}
+
+/// The usable part of a monitor (without the taskbar), in physical pixels: x, y, width, height.
+fn work_area(m: &Monitor) -> (i32, i32, i32, i32) {
+    let area = m.work_area();
+    (area.position.x, area.position.y, area.size.width as i32, area.size.height as i32)
+}
+
+/// If less than `min_visible` physical pixels of the icon are on any monitor (one was unplugged,
+/// or the resolution changed), move it to the bottom-right corner of the primary monitor.
+fn keep_on_screen(w: &WebviewWindow, min_visible: i32) {
+    let (Ok(position), Ok(size)) = (w.outer_position(), w.outer_size()) else { return };
+    let (x, y, width, height) = (position.x, position.y, size.width as i32, size.height as i32);
+    let Ok(monitors) = w.available_monitors() else { return };
+    let visible = monitors.iter().any(|m| {
+        let (ax, ay, aw, ah) = work_area(m);
+        let across = (x + width).min(ax + aw) - x.max(ax);
+        let down = (y + height).min(ay + ah) - y.max(ay);
+        across >= min_visible.min(width) && down >= min_visible.min(height)
+    });
+    if visible {
+        return;
+    }
+    if let Some(m) = w.primary_monitor().ok().flatten().or_else(|| monitors.into_iter().next()) {
+        let (ax, ay, aw, ah) = work_area(&m);
+        let margin = (MARGIN * m.scale_factor()) as i32;
+        let _ = w.set_position(PhysicalPosition::new((ax + aw - width.min(aw) - margin).max(ax), (ay + ah - height.min(ah) - margin).max(ay)));
+    }
 }
 
 /// Bottom-right corner of the work area of the monitor the main window is on.
@@ -203,7 +235,7 @@ fn present(app: &AppHandle, reason: &str) {
     let _ = w.set_size(LogicalSize::new(SIZE, SIZE));
     // A monitor may have been unplugged since the icon was last placed.
     let half = (SIZE * w.scale_factor().unwrap_or(1.0) / 2.0) as i32;
-    crate::sidecar::keep_on_screen(&w, half);
+    keep_on_screen(&w, half);
     let _ = w.show(); // keeps the window library's own record right
     native::show(&w); // and this shows it even when that record already said "shown"
     *state.shown_at.lock().unwrap() = Some(Instant::now());

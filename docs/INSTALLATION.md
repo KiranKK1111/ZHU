@@ -52,7 +52,7 @@ powershell -ExecutionPolicy Bypass -File packaging\build.ps1
 | `-SkipTests` | Skips the engine and front-end test suites |
 | `-Sign` | Code-signs the installer (needs `ZHU_SIGN_CERT_THUMBPRINT`) |
 
-The script prints the time at each step and, at the end, how long each one took. Measured on the development laptop with `-SkipInstall`: 2 minutes 38 seconds for everything, and an installer of 882 MB.
+The script prints the time at each step and, at the end, how long each one took. Measured on the development laptop with `-SkipInstall`: about 4 minutes for everything, and an installer of 880 MB. The longest steps are the app and installer (about 2 minutes), freezing the engine (about 1 minute), and running the freshly built engine inside a process to check it (about 30 seconds).
 
 The script:
 1. sets up the venv;
@@ -62,7 +62,8 @@ The script:
 5. **packs the NVIDIA libraries** (`packaging/pack_cuda.py`, see below) into `build/stage/zhu-engine`;
 6. runs the front-end tests;
 7. runs `tauri build` with `tauri.bundle.conf.json`, which adds `build/stage/zhu-engine` as a resource;
-8. writes `dist/ZHU-Setup.exe` and `dist/ZHU-Setup.exe.sha256`.
+8. **runs the frozen engine inside a process the way ZHU does** (`apps/desktop/src-tauri/examples/embedded_check.rs`): start, ask it two questions over its API, stop, and once more; any failure stops the build;
+9. writes `dist/ZHU-Setup.exe` and `dist/ZHU-Setup.exe.sha256`.
 
 **Why the NVIDIA libraries are packed separately.** The CUDA runtime (cuBLAS, cuDNN: eight libraries) is 1.5 GB of the engine's 1.8 GB, and it is the same in every build. Compressing it inside the installer took about eleven minutes each time, on one processor core. Now each library is compressed once, all of them at the same time (about 3 minutes on the development laptop), and kept in `build/cuda-pack` under the SHA-256 of its content; later builds find it there. The installer carries the libraries as `<name>.dll.xz` and only stores them.
 

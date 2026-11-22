@@ -15,3 +15,8 @@ export function toAccelerator(e: { key: string; code: string; ctrlKey: boolean; 
   else return null;
   return [...mods, key].join("+");
 }
+
+/** A shortcut as people read it: "CommandOrControl+Shift+L" -> "Ctrl+Shift+L". */
+export function acceleratorLabel(accelerator: string): string {
+  return accelerator.replace(/\b(CommandOrControl|CmdOrCtrl|CommandOrCtrl|Control)\b/g, "Ctrl");
+}

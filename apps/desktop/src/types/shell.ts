@@ -1,6 +1,6 @@
 /** Contract with the Rust shell (apps/desktop/src-tauri). */
 
-export type WindowKind = "main" | "sidecar" | "bubble";
+export type WindowKind = "main" | "bubble";
 
 export interface EngineInfo {
   status: "starting" | "ready" | "failed";
@@ -11,35 +11,20 @@ export interface EngineInfo {
   stuck?: boolean;
 }
 
-export type HotkeyAction =
-  | "toggle_sidecar"
-  | "toggle_listening"
-  | "capture_screen"
-  | "copy_latest_question"
-  | "toggle_click_through";
+export type HotkeyAction = "toggle_listening" | "capture_screen" | "copy_latest_question";
 
-export const HOTKEY_ACTIONS: HotkeyAction[] = [
-  "toggle_sidecar",
-  "toggle_listening",
-  "capture_screen",
-  "copy_latest_question",
-  "toggle_click_through",
-];
+export const HOTKEY_ACTIONS: HotkeyAction[] = ["toggle_listening", "capture_screen", "copy_latest_question"];
 
 export const DEFAULT_HOTKEYS: Record<HotkeyAction, string> = {
-  toggle_sidecar: "CommandOrControl+Shift+Space",
   toggle_listening: "CommandOrControl+Shift+L",
   capture_screen: "CommandOrControl+Shift+A",
   copy_latest_question: "CommandOrControl+Shift+C",
-  toggle_click_through: "CommandOrControl+Shift+K",
 };
 
 export const HOTKEY_LABELS: Record<HotkeyAction, string> = {
-  toggle_sidecar: "Show or hide the sidecar (floating window)",
   toggle_listening: "Start, pause or resume listening",
   capture_screen: "Screenshot of the whole screen",
   copy_latest_question: "Copy the latest question",
-  toggle_click_through: "Let clicks pass through the sidecar",
 };
 
 export type TrayAction = "toggle_listening" | "open_settings" | "new_session";

@@ -1,4 +1,4 @@
-import { Copy, ExternalLink, MessagesSquare, MoreHorizontal, Pencil, Sparkles, Trash2 } from "lucide-react";
+import { Copy, MessagesSquare, MoreHorizontal, Pencil, Sparkles, Trash2 } from "lucide-react";
 import { memo, useState } from "react";
 import { usePrefs } from "@/app/state/prefs";
 import { Button, IconButton } from "@/components/primitives/Button";
@@ -13,20 +13,16 @@ import { MathBlock, QuestionText } from "./QuestionText";
 
 export interface QuestionCardProps {
   question: Question;
-  /** Sidecar variant: smaller, with a link back to the main window instead of the Answer button. */
-  variant?: "full" | "compact";
-  onOpenInWorkspace?: () => void;
 }
 
 /**
  * One detected question: the text, and the three things you do with it (get an answer, copy it,
- * send it to the chat tabs). Shared by the Home screen and the sidecar.
+ * send it to the chat tabs).
  */
-export const QuestionCard = memo(function QuestionCard({ question: q, variant = "full", onOpenInWorkspace }: QuestionCardProps) {
+export const QuestionCard = memo(function QuestionCard({ question: q }: QuestionCardProps) {
   const actions = useQuestionActions();
   const hasChatTabs = usePrefs((p) => p.webChatTabs.length > 0);
   const [editing, setEditing] = useState(false);
-  const compact = variant === "compact";
   const open = isOpen(q);
   const discarded = q.state === "DISCARDED";
 
@@ -35,7 +31,7 @@ export const QuestionCard = memo(function QuestionCard({ question: q, variant = 
       aria-label={`Question: ${q.display_text}`}
       className={cn(
         "group rounded-xl border bg-surface transition-colors duration-fast",
-        compact ? "p-3" : "p-4",
+        "p-4",
         open ? "border-dashed border-border" : "border-border-subtle hover:border-border",
         discarded && "opacity-60",
       )}
@@ -66,7 +62,7 @@ export const QuestionCard = memo(function QuestionCard({ question: q, variant = 
         />
       ) : (
         <>
-          <QuestionText text={q.display_text} className={cn(compact ? "text-body" : "text-card font-medium leading-snug", open ? "text-fg-2" : "text-fg")} clamp={compact ? 6 : undefined} />
+          <QuestionText text={q.display_text} className={cn("text-card font-medium leading-snug", open ? "text-fg-2" : "text-fg")} />
           {q.subquestions.length > 0 ? (
             <ol className="mt-2 list-decimal space-y-0.5 pl-5 text-secondary text-fg-2 marker:text-fg-3">
               {q.subquestions.map((s, i) => (
@@ -76,7 +72,7 @@ export const QuestionCard = memo(function QuestionCard({ question: q, variant = 
               ))}
             </ol>
           ) : null}
-          {q.math_latex && !compact ? (
+          {q.math_latex ? (
             <div className="mt-2 rounded-md bg-surface-2 px-3 py-2 text-body">
               <MathBlock latex={q.math_latex} />
             </div>
@@ -86,25 +82,18 @@ export const QuestionCard = memo(function QuestionCard({ question: q, variant = 
 
       {!editing ? (
         <footer className="mt-3 flex items-center gap-1">
-          {onOpenInWorkspace ? (
-            <Button size="sm" variant="ghost" icon={<ExternalLink className="h-3.5 w-3.5" />} onClick={onOpenInWorkspace}>
-              Open in ZHU
-            </Button>
-          ) : (
-            <Button size="sm" variant="subtle" icon={<Sparkles className="h-3.5 w-3.5" />} disabled={discarded} onClick={() => actions.answer(q)}>
-              Answer
-            </Button>
-          )}
+          <Button size="sm" variant="subtle" icon={<Sparkles className="h-3.5 w-3.5" />} disabled={discarded} onClick={() => actions.answer(q)}>
+            Answer
+          </Button>
           <IconButton label="Copy question" size="sm" onClick={() => void actions.copy(q)}>
             <Copy className="h-3.5 w-3.5" />
           </IconButton>
-          {hasChatTabs && !compact ? (
+          {hasChatTabs ? (
             <IconButton label="Send to chat tabs" size="sm" disabled={discarded} onClick={() => actions.sendToChats(q)}>
               <MessagesSquare className="h-3.5 w-3.5" />
             </IconButton>
           ) : null}
-          {!compact ? (
-            <div className="ml-auto opacity-0 transition-opacity duration-fast focus-within:opacity-100 group-hover:opacity-100">
+          <div className="ml-auto opacity-0 transition-opacity duration-fast focus-within:opacity-100 group-hover:opacity-100">
               <Menu>
                 <MenuTrigger asChild>
                   <IconButton label="More" size="sm" noTooltip>
@@ -121,8 +110,7 @@ export const QuestionCard = memo(function QuestionCard({ question: q, variant = 
                   </MenuItem>
                 </MenuContent>
               </Menu>
-            </div>
-          ) : null}
+          </div>
         </footer>
       ) : null}
     </article>

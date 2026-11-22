@@ -15,12 +15,15 @@ export interface Prefs {
   /** Show ZHU's own pointer while the mouse is over a ZHU window. */
   customCursor: boolean;
   hotkeys: Record<HotkeyAction, string>;
-  sidecarOpacity: number;
-  sidecarCompact: boolean;
-  sidecarAlwaysOnTop: boolean;
+  /** How see-through ZHU's windows are, from 0.4 to 1 (see state/opacity.ts; hidden ZHU has its own level). */
+  windowOpacity: number;
   modelSetupSkipped: boolean;
   /** Show the live transcript under the questions on the Home screen. */
   showTranscript: boolean;
+  /** Home: the share of the width the questions take (the answers have the rest). */
+  homeSplit: number;
+  /** Home: the share of the questions column's height the transcript takes. */
+  transcriptSplit: number;
   /** The connected AI model (provider id) that answers questions on the Home screen. */
   answerProvider: string | null;
   /** Ask the selected model as soon as a question is detected. */
@@ -51,11 +54,11 @@ export const DEFAULT_PREFS: Prefs = {
   minimizeToBubble: true,
   customCursor: true,
   hotkeys: { ...DEFAULT_HOTKEYS },
-  sidecarOpacity: 0.97,
-  sidecarCompact: false,
-  sidecarAlwaysOnTop: true,
+  windowOpacity: 1,
   modelSetupSkipped: false,
   showTranscript: true,
+  homeSplit: 0.5,
+  transcriptSplit: 0.34,
   answerProvider: null,
   autoAnswer: false,
   instructions: "",

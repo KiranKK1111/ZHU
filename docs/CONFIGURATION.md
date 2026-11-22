@@ -1,6 +1,6 @@
 # Configuration Reference
 
-Engine settings are validated by Pydantic (`engine/zhu_engine/settings.py`), stored in SQLite, and edited in **Settings**. `PUT /api/settings` takes a partial object, `{section: {field: value}}`. UI-only preferences (theme, density, sidebar, sidecar opacity, hotkeys, Enter-to-send, close-to-tray) live in the front-end preference store.
+Engine settings are validated by Pydantic (`engine/zhu_engine/settings.py`), stored in SQLite, and edited in **Settings**. `PUT /api/settings` takes a partial object, `{section: {field: value}}`. UI-only preferences (theme, density, sidebar, window opacity, hotkeys, Enter-to-send, close-to-tray) live in the front-end preference store.
 
 ## audio
 | Field | Default | Meaning |
@@ -41,7 +41,7 @@ Engine settings are validated by Pydantic (`engine/zhu_engine/settings.py`), sto
 Connect: `POST /api/providers/{id}/test` checks the key, stores the model list, and selects a model when none is set. Your own models: `POST /api/providers/custom` `{name, base_url, model?, api_key?, images?}` · `DELETE /api/providers/{id}` (ids `custom-<8 hex>` only). See PROVIDERS.md.
 
 ## App preferences (main window's local storage, key `zhu.prefs.v1`)
-`theme` `dark` · `closeToTray` `true` · `hotkeys` · `showTranscript` `true` · `answerProvider` (the model that answers) · `autoAnswer` `false` · `instructions` (how answers should sound) · `webChatTabs` · `webChatActive` · `webChatAutoQuestions` `true` · `webChatAutoScreenshots` `true` · `webChatTarget` `all` (`all`/`active`) · sidecar: `sidecarOpacity`, `sidecarCompact`, `sidecarAlwaysOnTop`. Unknown or mistyped keys from older versions are ignored.
+`theme` `dark` · `closeToTray` `true` · `hotkeys` · `showTranscript` `true` · `homeSplit` `0.5` (the questions' share of the width on Home) · `transcriptSplit` `0.34` (the transcript's share of the questions column) · `answerProvider` (the model that answers) · `autoAnswer` `false` · `instructions` (how answers should sound) · `webChatTabs` · `webChatActive` · `webChatAutoQuestions` `true` · `webChatAutoScreenshots` `true` · `webChatTarget` `all` (`all`/`active`) · `windowOpacity` `1` (0.4 to 1; hidden ZHU starts at 0.8 and is not saved). Unknown or mistyped keys from older versions are ignored.
 
 ## What the Settings screen controls
 The app shows only: audio sources and devices, language, the speech model, storing transcripts, and the items above. Every other engine setting on this page (VAD thresholds, GPU device and precision, VRAM budget, performance profile, question timing, capture format, retention, technical vocabulary) keeps its default and can still be changed through `PUT /api/settings` or `PUT /api/vocabulary` for unusual setups.
@@ -59,8 +59,6 @@ The app shows only: audio sources and devices, language, the speech model, stori
 ## Default global hotkeys
 | Action | Default |
 |---|---|
-| Show/hide sidecar | Ctrl+Shift+Space |
 | Start/pause listening | Ctrl+Shift+L |
 | Capture the whole screen | Ctrl+Shift+A |
 | Copy latest question | Ctrl+Shift+C |
-| Toggle sidecar click-through | Ctrl+Shift+K |

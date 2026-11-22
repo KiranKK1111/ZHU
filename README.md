@@ -19,9 +19,9 @@ and helps you answer it. Speech recognition runs on your own computer.
 
 <br/>
 
-<img src="docs/images/home.png" width="92%" alt="ZHU while listening: the questions it picked out of the conversation on the left with the transcript below them, and the AI model's answer on the right" />
+<img src="docs/images/home.png" width="92%" alt="ZHU while listening: Live with the recording time, Pause and Stop in the title bar; the questions it picked out of the conversation on the left with the transcript below them; the AI model's answer on the right, with the Ask anything box under it" />
 
-<sub>ZHU while listening: questions picked out of the conversation, the live transcript, and an answer.</sub>
+<sub>ZHU while listening: the recording time and controls in the title bar, questions picked out of the conversation, the live transcript, and an answer.</sub>
 
 </div>
 
@@ -51,14 +51,17 @@ Audio is never uploaded and never saved. A question leaves your computer only wh
 | | |
 |---|---|
 | **Live questions** | Every question in the conversation is collected, newest first, while the full transcript runs underneath. |
+| **Listening, one click away** | Start, pause and stop from the title bar, on every screen, with the recording time always in view. |
 | **Answers, three ways** | An AI model connected inside ZHU, ZHU's own Custom chat, or the chat websites you already use (ChatGPT, Claude, Gemini and others) opened as tabs. |
 | **Free to start** | Two services answer without a key or an account. Google Gemini, Groq and OpenRouter have free tiers. Paid providers and local models (Ollama, LM Studio) work too. |
 | **Auto-answer** | Switch it on and each detected question is answered without a click. |
 | **Screenshots** | Capture the screen with one shortcut and send the picture with your question. ZHU keeps itself out of its own screenshots. |
 | **Knows what a model can read** | The model list marks each model: images, documents, audio, video, or text only. A screenshot is never sent to a model that cannot read it. |
 | **Your résumé** | Upload it once and questions about you are answered from it, in your voice. |
-| **Sidecar** | A small window that floats above your other windows with the live transcript and the latest question. |
-| **Hide mode** | One button takes ZHU out of the taskbar, Alt+Tab and screen captures, and keeps it on top of your screen. |
+| **Your layout** | Drag the lines between questions, answers and transcript to size them your way. ZHU remembers it. |
+| **Opacity** | Make ZHU see-through, from 40% to 100%: the whole window, chat tabs included. |
+| **Hide mode** | One button takes ZHU out of the taskbar, Alt+Tab and screen captures, keeps it on top of your screen, and makes it 80% see-through. |
+| **One process** | The engine runs inside ZHU itself: one entry in Task Manager. If it ever stops, the window stays and **Restart engine** brings it back. |
 | **History** | Every session with its questions and answers, to reopen, export or delete. |
 
 ## Install
@@ -93,19 +96,24 @@ Either way works, and you can use both.
 * **The chat websites you already use.** Open **AI chats → +** and pick ChatGPT, Claude, Gemini or another site. Sign in once, as in a browser.
 
 <p align="center">
-  <img src="docs/images/custom-chat.png" width="92%" alt="Custom chat inside ZHU: a formatted answer with highlighted code, and the model chip in the message box" />
+  <img src="docs/images/custom-chat.png" width="92%" alt="Custom chat inside ZHU: a formatted answer with highlighted code, the Ask anything box with the model chip, and Start listening in the title bar" />
 </p>
 
 ### 2. Start listening
 
-Press **Start listening** on Home. ZHU listens to the call (your computer's sound) and to your microphone. The title bar and the tray icon always say whether ZHU is recording, and **Pause** and **Stop** are at the top.
+Press **Start listening** in the title bar; it is there on every screen. ZHU listens to the call (your computer's sound) and to your microphone. While it listens, the title bar shows **Live** with the time, and **Pause** and **Stop** next to it; the tray icon says whether ZHU is recording too. The **+** next to Start listening opens a fresh session.
+
+<p align="center">
+  <img src="docs/images/title-bar.png" width="640" alt="The title bar while listening: Live with the recording time, Pause and Stop, then the opacity control opened with its slider, the eye button for hide mode, and the panel button" />
+</p>
 
 ### 3. Read the questions, get the answers
 
 * **Questions** (left) lists every question that is asked. **Answer** asks your AI model, **Copy** copies the question, and the **⋯** menu corrects the wording or removes something that was not a question.
 * **Answers** (right) shows the replies like a chat, with formatted text, tables, code and formulas.
 * **Auto-answer** (top of Answers) answers each question as soon as it is detected.
-* The box at the bottom takes your own question. The model chip inside it changes the model. The same model answers on Home and in Custom chat.
+* The box at the bottom (**Ask anything**) takes your own question. The model chip inside it changes the model. The same model answers on Home and in Custom chat.
+* **Make room** where you need it: drag the line between Questions and Answers, or the line above the transcript. Double-click a line to go back to the original sizes.
 
 ### 4. Add what is on your screen
 
@@ -123,8 +131,8 @@ In the panel on the right, upload **your résumé** (PDF, Word or text). While i
 
 ### 6. Keep it in view, or out of the way
 
-* **Sidecar:** **Ctrl+Shift+Space** opens a small always-on-top window with the transcript and the latest question.
-* **Hide mode:** the eye button in the title bar takes ZHU out of the taskbar, Alt+Tab and screen captures, and keeps the main window on top of your other windows. Minimize it and a small floating icon brings it back. Hide mode is off again every time ZHU starts.
+* **Opacity:** the opacity button in the title bar makes ZHU see-through, so you can read what is behind it. It applies to everything in ZHU, the chat tabs included.
+* **Hide mode:** the eye button in the title bar takes ZHU out of the taskbar, Alt+Tab and screen captures, keeps the main window on top of your other windows, and sets the opacity to 80% (change it as you like while hidden; showing ZHU again brings back your usual opacity). Minimize it and a small floating icon brings it back. Hide mode is off again every time ZHU starts.
 
 ### Keyboard shortcuts
 
@@ -135,8 +143,6 @@ These work from any app. Change them under **Settings → App → Edit shortcuts
 | `Ctrl` `Shift` `L` | Start, pause or resume listening |
 | `Ctrl` `Shift` `A` | Screenshot of the whole screen |
 | `Ctrl` `Shift` `C` | Copy the latest question |
-| `Ctrl` `Shift` `Space` | Show or hide the sidecar |
-| `Ctrl` `Shift` `K` | Let clicks pass through the sidecar, or stop that |
 
 The [user manual](docs/USER_MANUAL.md) covers every screen in detail.
 
@@ -153,7 +159,7 @@ py -3 -m venv .venv
 .venv\Scripts\pip install --force-reinstall --no-deps onnxruntime-directml==1.24.4
 .venv\Scripts\python -m pytest
 
-# 2. The desktop app (it starts the engine by itself)
+# 2. The desktop app (it runs the engine inside itself, with the Python of engine\.venv)
 cd ..\apps\desktop
 npm install
 npm test
@@ -170,7 +176,7 @@ From the repository root:
 powershell -ExecutionPolicy Bypass -File packaging\build.ps1
 ```
 
-This runs the tests, freezes the engine, builds the app and writes `dist\ZHU-Setup.exe` with its SHA-256 checksum next to it. Useful switches: `-SkipInstall` reuses the packages already installed (quicker, and it works while the dev session is running), `-SkipTests` skips the test suites, and `-Sign` code-signs. With `-SkipInstall` a build takes under three minutes on the development laptop.
+This runs the tests, freezes the engine, builds the app and writes `dist\ZHU-Setup.exe` with its SHA-256 checksum next to it. Useful switches: `-SkipInstall` reuses the packages already installed (quicker, and it works while the dev session is running), `-SkipTests` skips the test suites, and `-Sign` code-signs. With `-SkipInstall` a build takes about four minutes on the development laptop, including every test and a check that the app can run the freshly built engine.
 
 > [!TIP]
 > Close a running `npm run tauri dev` session first. The script reinstalls dependencies, and Windows refuses to replace files that the running app has open.
@@ -204,7 +210,7 @@ ZHU
 ├── apps/desktop          The desktop app (Tauri 2)
 │   ├── src               Front end: React and TypeScript
 │   └── src-tauri         Windows shell in Rust: windows, tray, shortcuts, hide mode, runs the engine in-process
-├── engine/zhu_engine     The processing engine in Python (local server on 127.0.0.1, token-protected)
+├── engine/zhu_engine     The processing engine in Python, run inside the app (local server on 127.0.0.1, token-protected)
 │   ├── audio · vad · stt Capture, voice detection, speech recognition (Whisper or NVIDIA Parakeet)
 │   ├── questions         Question detection: rule-based, runs on the processor
 │   └── providers         Connections to AI model providers

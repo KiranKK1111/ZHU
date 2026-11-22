@@ -18,12 +18,11 @@ Logs: `%LOCALAPPDATA%\app.zhu.desktop\data\logs\engine.log`. `GET /api/system/di
 | Transcript is empty on silence / "Thank you." never appears | Expected: hallucination guard (AUDIO_PIPELINE.md) | — |
 | Questions complete too early or too late | Pause thresholds | The defaults suit most speakers. They can be changed through the settings API (`questions.*`, CONFIGURATION.md) |
 | A technical term is wrong (e.g. "Post gress") | Missing vocabulary alias | Use **Edit wording** on the question. Aliases can be added through `PUT /api/vocabulary` |
-| Sidecar can't be clicked | Click-through is on | Ctrl+Shift+K or tray → *Disable sidecar click-through* |
 | ZHU is running but not in the taskbar or Alt+Tab | **Hide from taskbar, Alt+Tab and screen capture** is on (the eye button in the title bar) | Press the eye button again, or tray → *Show in taskbar, Alt+Tab and screen capture*. Restarting ZHU also switches it off |
 | ZHU is on screen but missing from a screenshot, a recording or a screen share | The same switch: while ZHU is hidden, Windows leaves its windows out of captures | Expected. Switch the hiding off as above to have ZHU in the capture |
 | ZHU still shows in a capture, or as a black rectangle, while hidden | Windows older than 10 version 2004 shows a black rectangle; a tool that does not capture through Windows' compositor may show the window | Update Windows, or minimize ZHU before capturing |
 | ZHU's main window stays above every other window | The same switch: while ZHU is hidden, the main window stays on top so it cannot get lost | Minimize it to get it out of the way, or switch the hiding off as above |
-| Sidecar vanished after unplugging a monitor | Off-screen position | It's moved back automatically within 5 s. Toggle it with Ctrl+Shift+Space |
+| ZHU is see-through | The opacity in the title bar is below 100%, or ZHU is hidden (hide mode starts at 80%) | Opacity button → **Back to 100%**, or show ZHU again with the eye button |
 | A hotkey doesn't work | Another app registered it | Settings → General → Keyboard shortcuts: click it and press a different combination |
 | Chat tab: "… is showing its sign-in page" or "No message box found" | You are not signed in on that site yet, or it shows a consent or verification page | Open the tab, sign in (once), and open a chat. ZHU never types into sign-in pages. Then use **Send latest question** |
 | A provider refuses sign-in in a chat tab ("This browser or app may not be secure") | Some providers (Google for some accounts) block sign-in in application-embedded browsers | ZHU does not work around this. Use that provider's API (Providers), or its site in your normal browser |

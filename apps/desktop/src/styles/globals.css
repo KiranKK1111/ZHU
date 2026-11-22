@@ -82,6 +82,21 @@
   [data-disabled] {
     cursor: var(--zhu-cursor, default);
   }
+  /* Bars that resize panes (SplitHandle); while one is dragged, the whole window keeps its arrow. */
+  [data-split="columns"],
+  html.zhu-resizing-columns,
+  html.zhu-resizing-columns * {
+    cursor: var(--zhu-cursor-ew, col-resize) !important;
+  }
+  [data-split="rows"],
+  html.zhu-resizing-rows,
+  html.zhu-resizing-rows * {
+    cursor: var(--zhu-cursor-ns, row-resize) !important;
+  }
+  html.zhu-resizing-columns *,
+  html.zhu-resizing-rows * {
+    user-select: none !important;
+  }
   /* Text that can be typed into. */
   textarea,
   input:not([type]),
@@ -265,7 +280,7 @@ body.zhu-dragging * {
   -webkit-user-select: none !important;
 }
 
-/* Transparent sidecar window: the window background stays clear and the rounded surface draws itself. */
+/* Transparent window (the floating icon): the window background stays clear and the icon draws itself. */
 html.zhu-transparent,
 html.zhu-transparent body {
   background: transparent;

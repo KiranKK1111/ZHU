@@ -58,7 +58,7 @@ The script:
 
 `.github/workflows/release.yml` runs the same script on a GitHub Windows runner, under a version number it works out by itself.
 
-* **Every push to `main` becomes a release.** The workflow reads the commit messages since the last release, decides the next version, writes it into the app, builds the installer, and publishes a GitHub Release with the tag `vX.Y.Z`, the installer and its SHA-256. A push that changes only documentation is skipped, and a newer push cancels the build of an older one (its commits then belong to the newer release).
+* **Every push to `main` becomes a release.** The workflow reads the commit messages since the last release, decides the next version, writes it into the app, builds the installer, and publishes a GitHub Release with the tag `vX.Y.Z`, the installer and its SHA-256. A push that changes only documentation or the workflow itself is skipped. Builds run one at a time: a newer push waits for the running build and is released as the version after it.
 * **Actions → Build installer → Run workflow** builds the next version from any branch without releasing it; the installer is kept with that run as an artifact for 14 days.
 * **A tag pushed by hand** releases exactly that version, whatever the commits say: `git tag v2.0.0`, then `git push origin v2.0.0`.
 

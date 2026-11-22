@@ -1,7 +1,7 @@
 # Builds dist\ZHU-Setup.exe with packaging\build.ps1 (tests, frozen engine, Tauri app, NSIS installer)
 # and releases it under a version that packaging\version.ps1 works out from the commits.
 #
-#   * Every push to main (other than documentation-only changes) becomes a release. The version
+#   * Every push to main (other than changes to documentation or to this workflow only) becomes a release. The version
 #     follows from the commit messages since the last release: a breaking change raises the main
 #     version, a new feature the sub version, anything else the patch (rules: packaging\version.ps1).
 #     The workflow writes that version into the app, builds, and publishes a GitHub Release with
@@ -29,6 +29,7 @@ on:
       - "docs/**"
       - "LICENSE"
       - ".gitignore"
+      - ".github/**" # a change to this workflow alone does not change the app
   workflow_dispatch:
 
 permissions:
@@ -36,9 +37,9 @@ permissions:
 
 concurrency:
   group: installer-${{ github.ref }}
-  # A newer push to a branch replaces the build of the older one (its commits are then part of
-  # the newer release); the build of a tag pushed by hand always finishes.
-  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+  # One build at a time per branch, in order: a newer push waits for the running build to finish
+  # and is then released as the version after it. Nothing that is running gets cancelled.
+  cancel-in-progress: false
 
 jobs:
   version:
@@ -51,7 +52,7 @@ jobs:
       release: ${{ steps.plan.outputs.release }}
     steps:
       - name: Check out, with the history and the tags
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -88,21 +89,21 @@ jobs:
 
     steps:
       - name: Check out
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Write the version into the app
         shell: pwsh
         run: ./packaging/version.ps1 -Set $env:VERSION
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.13"
           cache: pip
           cache-dependency-path: engine/pyproject.toml
 
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: "18.x"
           cache: npm
@@ -124,7 +125,7 @@ jobs:
         run: ./packaging/build.ps1
 
       - name: Keep the installer with this run
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ZHU-Setup-${{ needs.version.outputs.version }}
           path: |

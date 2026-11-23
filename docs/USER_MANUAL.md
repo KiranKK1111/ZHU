@@ -56,14 +56,26 @@ The eye button in the title bar takes ZHU out of the taskbar, Alt+Tab, Task View
 
 * ZHU's windows stay on your screen where they are. Screenshots, recordings and screen sharing show what is behind them, as if ZHU were not there (Windows 10 version 2004 or later; older versions show a black rectangle). This covers the main window and the floating icon, not the tray menu or a "Save as" dialog.
 * While it is hidden, the main window stays on top of your other windows, because Alt+Tab and the taskbar can no longer bring it back from behind them. When you show ZHU in the taskbar again, the main window is an ordinary window again.
-* Hiding ZHU sets its opacity to 80%, so you can see what is behind it. Change it with the opacity button as you like while it is hidden; showing ZHU again brings back the opacity you had before. Every time you hide ZHU it starts at 80% again.
-* To get it out of the way while hidden, minimize it: the floating icon brings it back, and so does the tray icon (click it, or **Show ZHU** in its menu).
-* It is off again every time ZHU starts.
+* Hiding ZHU sets its opacity to 80%, so you can see what is behind it. Change it with the opacity button as you like while it is hidden; showing ZHU again brings back the opacity you had before. Every time you hide ZHU with the eye button it starts at 80% again.
+* ZHU's icon leaves the system tray as well, so nothing by the clock gives it away; it is back as soon as you show ZHU again.
+* Over ZHU the pointer freezes for others (see **Pointer** below): the real pointer stops where it enters ZHU, and an arrow that looks just like your own Windows pointer moves for you instead, over the title bar too.
+* To get it out of the way while hidden, minimize it: the floating icon brings it back. Closing the window while hidden minimizes it too (with **Keep running when the window is closed** on). If you have switched the floating icon off, start ZHU again from the Start menu: that brings back the window that is already running.
+* ZHU remembers it: if ZHU was hidden when it closed (or when the computer shut down), it opens hidden again, at the opacity it had, and it never shows in the taskbar, the tray or a screen share while it starts. Started with Windows, it waits minimized behind the floating icon. Press the eye button to show it again.
 
-## Custom pointer
-While ZHU is hidden (the eye button), its own pointer is switched off and the standard Windows pointer is used, also at the window's edges: a screen share or recording shows the mouse pointer as it is, even over a window it leaves out. It comes back when you show ZHU again.
+## Pointer
+Over ZHU the pointer is always an arrow, and nothing else: no hand over buttons and links, no text beam over text boxes or text, no resize arrows over the dividers between panes or at the window's edges, also on the chat websites in AI chats. Typing, clicking, selecting text, dragging the dividers and resizing the window work as usual; only the pointer's shape stays the same.
 
-While the mouse is over a ZHU window, the pointer takes ZHU's own look: a violet arrow, the same arrow with a spark over anything you can click, and a matching beam over text. It is still your one Windows pointer, so it moves exactly as before; the moment it leaves ZHU it looks normal again. It covers the whole window: at the very edges, where you resize the window, the resize arrows are in the same style. Chat websites opened inside ZHU keep the normal pointer, because those pages are not ZHU's. Switch it off under Settings → App → **Custom pointer**.
+With **Custom pointer** on (Settings → App), that arrow is ZHU's own violet arrow. It is still your one Windows pointer, so it moves exactly as before, and the moment it leaves ZHU it looks normal again. With it off, it is the Windows arrow. The chat websites show the Windows arrow, because those pages are not ZHU's. While ZHU is hidden there is no violet arrow anywhere: you only ever see your Windows pointer.
+
+### While ZHU is hidden: the frozen pointer
+A screen share or recording shows the mouse pointer as it is, even over a window it leaves out. So while ZHU is hidden, the real pointer stops where it enters ZHU, and ZHU moves an arrow of its own instead, which screen sharing leaves out like the rest of ZHU. That arrow looks exactly like your Windows pointer (your pointer scheme, at the size Windows shows it), so nothing on your screen gives ZHU away either:
+
+* **What viewers see:** the pointer stands still where it entered ZHU (to them, an empty part of the screen). When you leave ZHU it glides on to where you left, in a fraction of a second, the way a hand moves a mouse.
+* **What you see:** the Windows pointer standing still at the edge of ZHU, and the arrow moving with your mouse over all of ZHU, the title bar included. Clicks, double-clicks, scrolling, dragging (the dividers, text selection) and typing after a click all go to ZHU, as usual; a click also brings ZHU to the front. Drag the title bar to move the window, and double-click it to maximize or restore.
+* **Resizing:** at the very edge of the window (where Windows resizes it) the real pointer is back: take the arrow to the edge, and press and drag as usual. Pressing while the pointer is still on its way there works too.
+* If ZHU is hidden while the pointer is over it, the arrow takes over at your first movement and the real pointer moves off to ZHU's nearest edge. A dialog or menu in front of ZHU gets the real pointer.
+* It lets go by itself when you leave ZHU, show ZHU again, or minimize it (the real pointer glides to the arrow), and at once when a pen, a touch screen or another program moves the pointer.
+* **Limits:** dragging text or files out of ZHU into another program needs the real pointer, and a window moved by its title bar while frozen does not snap to the screen's edges. It is experimental: if a click or a drag does not behave, switch it off under Settings → App → **Freeze the pointer while hidden**; the pointer then stays the Windows arrow over a hidden ZHU and moves normally.
 
 ## Opacity
 The opacity button in the title bar (next to the eye) makes ZHU see-through, from 40% to 100%. It applies to everything in ZHU: every screen with its menus and dialogs, the chat websites in AI chats, and the floating icon. **Back to 100%** in the same place makes ZHU solid again. Your choice is kept for the next start. While ZHU is hidden it has a level of its own (see above).
@@ -80,7 +92,7 @@ Five groups; the list on the left jumps between them.
 * **Answers**: **Manage models** opens the AI models dialog (connect, change the model, remove a key, or add a provider of your own: a local Ollama or LM Studio server, or any OpenAI-compatible address). Also here: answer questions automatically, **How answers should sound** (an optional sentence added to every question, for example "Answer briefly, the way I would say it in an interview."), and your résumé.
 * **Listening**: the call, the microphone, the language, and the speech model.
 * **Chat tabs**: what is filled in automatically, and **Sign out of all chat sites**.
-* **App**: dark or light, the panel on the right, start with Windows, keep running in the tray. **Edit shortcuts** opens the keyboard shortcuts dialog: click a shortcut, then press the new keys.
+* **App**: dark or light, the panel on the right, start with Windows, ZHU's pointer, freezing the pointer while hidden, keep running in the tray. **Edit shortcuts** opens the keyboard shortcuts dialog: click a shortcut, then press the new keys.
 * **Your data**: keep or drop the full transcript, and **Delete everything**.
 
 Recognition and question-detection tuning (thresholds, GPU memory budget, vocabulary) use built-in defaults. They remain adjustable through the engine's settings API for unusual setups; see CONFIGURATION.md.

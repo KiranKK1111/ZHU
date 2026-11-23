@@ -344,19 +344,7 @@ pub fn start_watchdog(app: &AppHandle) {
     });
 }
 
-/// One line per show, hide and repair in `logs/shell.log` of the app's data folder, so that an
-/// icon that went away can be explained afterwards. Small, and trimmed when it grows.
+/// One line per show, hide and repair, so that an icon that went away can be explained afterwards.
 fn log(app: &AppHandle, message: &str) {
-    use std::io::Write;
-    let Ok(dir) = app.path().app_local_data_dir() else { return };
-    let dir = dir.join("data").join("logs");
-    let path = dir.join("shell.log");
-    let _ = std::fs::create_dir_all(&dir);
-    if std::fs::metadata(&path).map(|m| m.len() > 256 * 1024).unwrap_or(false) {
-        let _ = std::fs::remove_file(&path);
-    }
-    let secs = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
-    if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(&path) {
-        let _ = writeln!(f, "{secs} floating icon: {message}");
-    }
+    crate::shell_log(app, "floating icon", message);
 }

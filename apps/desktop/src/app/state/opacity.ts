@@ -4,7 +4,8 @@
  *
  * Two levels: the everyday one, saved in the preferences, and the one while ZHU is hidden (the eye
  * button). Hiding ZHU sets it to 80%; it can be changed from there, and showing ZHU again brings
- * back the everyday level.
+ * back the everyday level. A ZHU that closed hidden opens hidden, at the level it had then (the
+ * shell keeps it, src-tauri/src/start_state.rs).
  */
 import { useEffect } from "react";
 import { create } from "zustand";
@@ -19,17 +20,24 @@ export const MIN_OPACITY = 0.4;
 interface HiddenLook {
   /** ZHU is hidden from the taskbar, Alt+Tab and screen capture (as the shell reports). */
   hidden: boolean;
+  /** The shell has said whether ZHU is hidden; until then no opacity is applied (a page loading
+   * in a hidden ZHU would otherwise make it fully opaque for a moment, and the shell would keep
+   * that as the hidden level). */
+  known: boolean;
   /** The opacity while hidden. */
   hiddenLevel: number;
-  setHidden: (hidden: boolean) => void;
+  /** `level`: the opacity to be hidden at, when ZHU is found hidden (it opened that way). */
+  setHidden: (hidden: boolean, level?: number) => void;
   setHiddenLevel: (level: number) => void;
 }
 
 export const useHiddenLook = create<HiddenLook>((set, get) => ({
   hidden: false,
+  known: false,
   hiddenLevel: HIDDEN_OPACITY,
   // Every time ZHU becomes hidden, it starts at 80%.
-  setHidden: (hidden) => set(hidden && !get().hidden ? { hidden, hiddenLevel: HIDDEN_OPACITY } : { hidden }),
+  setHidden: (hidden, level) =>
+    set(hidden && !get().hidden ? { hidden, known: true, hiddenLevel: clampOpacity(level ?? HIDDEN_OPACITY) } : { hidden, known: true }),
   setHiddenLevel: (level) => set({ hiddenLevel: level }),
 }));
 
@@ -56,14 +64,19 @@ export function useWindowOpacity(): { opacity: number; hidden: boolean; setOpaci
 export function useOpacitySync(): void {
   const { opacity } = useWindowOpacity();
   const setHidden = useHiddenLook((s) => s.setHidden);
+  const known = useHiddenLook((s) => s.known);
   useEffect(() => {
     if (!inTauri) return;
     let off: (() => void) | undefined;
     let cancelled = false;
+    // Hidden already when the page loads (ZHU opened the way it closed): at the level it had.
     void shell
       .hiddenFromBars()
-      .then((hidden) => !cancelled && setHidden(hidden))
-      .catch(() => undefined);
+      .then(async (hidden) => {
+        const level = hidden ? await Promise.resolve().then(() => shell.hiddenOpacity()).catch(() => null) : null;
+        if (!cancelled) setHidden(hidden, level ?? undefined);
+      })
+      .catch(() => !cancelled && setHidden(false));
     void onShellEvent<boolean>("zhu://hidden-from-bars", setHidden).then((u) => (cancelled ? u() : (off = u)));
     return () => {
       cancelled = true;
@@ -71,6 +84,6 @@ export function useOpacitySync(): void {
     };
   }, [setHidden]);
   useEffect(() => {
-    if (inTauri) void shell.setWindowOpacity(opacity).catch(() => undefined);
-  }, [opacity]);
+    if (inTauri && known) void shell.setWindowOpacity(opacity).catch(() => undefined);
+  }, [opacity, known]);
 }

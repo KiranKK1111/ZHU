@@ -11,7 +11,8 @@
 //!   `engine_info` (the engine token) or any other command.
 //! * Navigation is limited to https, so a page cannot open ZHU's own bundled UI inside a chat tab.
 //! * ZHU fills the message box and attaches screenshots; it never signs in and never presses Send.
-//!   The only script it runs in a page is `webchat_inject.js`, with data passed as JSON literals.
+//!   The scripts it runs in a page are `webchat_inject.js`, with data passed as JSON literals, and
+//!   a fixed style rule that keeps the pointer the arrow (`POINTER_JS`), as everywhere in ZHU.
 
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -166,8 +167,11 @@ pub async fn webchat_open(app: AppHandle, id: String, url: String) -> Result<boo
         .data_directory(profile)
         .additional_browser_args(&browser_args)
         .on_navigation(navigation_allowed)
-        .on_page_load(move |_wv, payload| {
+        .on_page_load(move |wv, payload| {
             let finished = matches!(payload.event(), PageLoadEvent::Finished);
+            // Every page gets the arrow as it starts, and again once it has loaded (in case the
+            // page replaced its style sheets meanwhile).
+            let _ = wv.eval(POINTER_JS);
             let st = load_app.state::<WebChatState>();
             st.loaded.lock().unwrap().insert(load_id.clone(), finished.then(Instant::now));
             emit(&load_app, &load_id, if finished { "loaded" } else { "loading" }, Some(payload.url().to_string()), None);
@@ -415,6 +419,25 @@ pub async fn webchat_deliver(app: AppHandle, id: String, payload: DeliverPayload
     .map_err(|e| e.to_string())?
 }
 
+/// The chat pages show only the arrow too, over their message boxes, buttons and links, as the
+/// rest of ZHU does (globals.css). The rule is a style sheet the script makes and adopts into the
+/// document, so it needs no element in the page and can be applied the moment a document exists.
+/// It is fixed text and carries no data.
+const POINTER_JS: &str = "(function(){try{var d=document,k='__zhuArrow',s=window[k],\
+make=function(){var n=new CSSStyleSheet();n.replaceSync('*,*::before,*::after{cursor:default!important}');window[k]=n;return n;},\
+rest=d.adoptedStyleSheets.filter(function(x){return x!==s;});\
+try{d.adoptedStyleSheets=rest.concat([s||make()]);}catch(e){d.adoptedStyleSheets=rest.concat([make()]);}}catch(e){}})()";
+
+/// The chat tab shown at this point of the screen (physical pixels), if one is shown there.
+pub fn visible_tab_at(app: &AppHandle, x: i32, y: i32) -> Option<Webview> {
+    let id = app.state::<WebChatState>().visible.lock().unwrap().clone()?;
+    let wv = app.get_webview(&format!("{LABEL_PREFIX}{id}"))?;
+    let origin = app.get_window("main")?.inner_position().ok()?;
+    let (pos, size) = (wv.position().ok()?, wv.size().ok()?);
+    let (left, top) = (origin.x + pos.x, origin.y + pos.y);
+    (x >= left && y >= top && x < left + size.width as i32 && y < top + size.height as i32).then_some(wv)
+}
+
 /// Evaluate an expression in the page and return its JSON-serialized value.
 fn eval_json(wv: &Webview, js: String) -> Result<Value, String> {
     let (tx, rx) = mpsc::channel::<String>();
@@ -446,6 +469,14 @@ mod tests {
         for bad in ["http://chatgpt.com", "file:///C:/Windows/win.ini", "javascript:alert(1)", "tauri://localhost", "chatgpt.com", "https://"] {
             assert!(parse_https(bad).is_err(), "{bad}");
         }
+    }
+
+    #[test]
+    fn the_pointer_script_gives_every_element_the_arrow() {
+        assert!(POINTER_JS.contains("'*,*::before,*::after{cursor:default!important}'"));
+        // One function, called at once, that touches nothing but the page's style sheets.
+        assert!(POINTER_JS.starts_with("(function(){") && POINTER_JS.ends_with("})()"));
+        assert!(POINTER_JS.contains("adoptedStyleSheets") && !POINTER_JS.contains("fetch") && !POINTER_JS.contains("location"));
     }
 
     #[test]

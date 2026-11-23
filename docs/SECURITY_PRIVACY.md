@@ -67,18 +67,20 @@ Limits of capture exclusion:
 * It needs Windows 10 version 2004 or later. Older versions show a black rectangle in the capture where the window is.
 * It covers what Windows composes for a capture. It does nothing about a camera or a second person looking at the screen, and remote-control tools that read the display in other ways are not guaranteed to honor it.
 * It covers ZHU's two windows (main with its chat tabs, floating icon). Windows that belong to the system and are opened from ZHU, such as the tray menu and the "Save as" dialog of an export, are not covered.
-* The tray icon stays, and so does the taskbar's overflow area that holds it.
+* The tray icon is removed while ZHU is hidden, and comes back when it is shown again.
 
 ZHU uses no process hiding, and it does not try to evade security tools: ZHU stays in Task Manager (one process, `zhu.exe`, which runs the engine inside it). The floating icon uses `skipTaskbar`, the standard behavior for a floating palette, and it remains an ordinary top-level window of the visible ZHU process.
 
 ### Hide from the taskbar, Alt+Tab and screen capture
 
-The eye button in the title bar, and the same entry in the tray menu, hide ZHU and put it back. It is off at every start and is not saved. While it is on:
+The eye button in the title bar, and the same entry in the tray menu, hide ZHU and put it back. ZHU remembers it: if it was hidden when it closed, it opens hidden again. The shell keeps that, with the opacity of each mode, in `start-state.json` in ZHU's folder under `%LOCALAPPDATA%` (nothing else is in it), and makes the window a hidden one before it is first shown, so a starting ZHU never appears in the taskbar, the tray or a capture. While it is on:
 
 * **ZHU is not in the taskbar, Alt+Tab or Task View.** Its two windows (main, floating icon) carry the Windows "tool window" style, which is the documented way to leave a window out of those lists.
 * **ZHU is not in screen captures**, as described above. The windows stay on your own screen where they are.
-* **The main window stays on top of other windows.** With no taskbar button and no Alt+Tab entry, a window behind others could only be reached through the tray. If another program takes the "always on top" state away, ZHU sets it again at once. System surfaces that Windows always draws above applications (the Start menu, the lock screen, a permission prompt) still cover it, and so does another always-on-top window that you click afterwards.
-* **The process is not hidden.** ZHU (`zhu.exe`) stays in Task Manager, and the tray icon stays. The recording state is still shown in the title bar and the tray tooltip (§2). Hiding ZHU also sets its opacity to 80%; that changes only how ZHU looks on your screen.
+* **ZHU is not in the system tray.** Its tray icon is removed and comes back when ZHU is shown again. A minimized ZHU comes back through the floating icon, or by starting ZHU again (which shows the window that is already running).
+* **The main window stays on top of other windows.** With no taskbar button, no Alt+Tab entry and no tray icon, a window behind others would be hard to reach. If another program takes the "always on top" state away, ZHU sets it again at once. System surfaces that Windows always draws above applications (the Start menu, the lock screen, a permission prompt) still cover it, and so does another always-on-top window that you click afterwards.
+* **The pointer freezes over ZHU** (Settings → App → **Freeze the pointer while hidden**, on by default). For that, ZHU installs a Windows low-level mouse hook while it is hidden, and removes it when it is shown again or the setting is switched off. The hook sees mouse movements, buttons and the wheel for the whole desktop, and acts on them only over ZHU's window: there it keeps them from moving the real pointer and from reaching other programs, and hands them to ZHU's own windows. When you leave ZHU it moves the real pointer to where ZHU's arrow is (gliding there in a fraction of a second); a click made during that moment is held back and made again at the arrow, so it reaches what you clicked on. It records nothing, stores nothing, and sees no keystrokes. ZHU's stand-in arrow is drawn from your own Windows pointer scheme (so it looks like your pointer, not like ZHU) and is left out of captures like its other windows.
+* **The process is not hidden.** ZHU (`zhu.exe`) stays in Task Manager. The recording state is still shown in the title bar (§2). Hiding ZHU also sets its opacity to 80%; that changes only how ZHU looks on your screen.
 
 The consent rules in §2 apply whether or not ZHU is hidden: other participants cannot see from a shared screen that ZHU is in use, so telling them is up to you.
 

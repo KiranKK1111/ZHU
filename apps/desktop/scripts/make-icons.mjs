@@ -1,27 +1,20 @@
-// Regenerates the images the shell embeds, from their SVG sources in public/:
+// Regenerates the app icons the shell embeds, from their SVG source in public/:
 //
 //   public/zhu-mark.svg          -> src-tauri/icons/    every app icon (taskbar, window, tray, installer)
-//   public/cursors/resize-*.svg  -> src-tauri/cursors/  the resize cursors at the window edges
 //
-//   npm run icons
-//
-// The app's own UI shows the same SVG files directly, so nothing is drawn twice. The SVGs are
+// The app's own UI shows the same SVG file directly, so nothing is drawn twice. The SVG is
 // rendered by headless Microsoft Edge (installed with every Windows 10/11; set EDGE_PATH to use
 // another Chromium browser), driven over its DevTools protocol; `tauri icon` then makes every icon
 // size and the .ico.
 import { execFileSync, spawn } from "node:child_process";
 import { createRequire } from "node:module";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const app = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const icons = join(app, "src-tauri", "icons");
-const cursors = join(app, "src-tauri", "cursors");
-/** Resize cursors, and the pixel sizes they are rendered at: 32 px at 100 %, 125 %, 150 % and 200 % screen scaling. */
-const RESIZE_CURSORS = ["ew", "ns", "nwse", "nesw"];
-const CURSOR_SIZES = [32, 40, 48, 64];
 
 const edge =
   process.env.EDGE_PATH ??
@@ -31,20 +24,12 @@ if (!edge) throw new Error("Microsoft Edge was not found. Set EDGE_PATH to a Chr
 const work = mkdtempSync(join(tmpdir(), "zhu-icons-"));
 try {
   await withBrowser(edge, join(work, "profile"), async (render) => {
-    // The app icon.
     const png = join(work, "zhu-mark-1024.png");
     writeFileSync(png, await render(join(app, "public", "zhu-mark.svg"), 1024));
     execFileSync("npx", ["tauri", "icon", png, "--output", icons], { cwd: app, stdio: "inherit", shell: true });
     // `tauri icon` also writes macOS and mobile icon sets; ZHU is a Windows app.
     for (const extra of ["android", "ios", "icon.icns"]) rmSync(join(icons, extra), { recursive: true, force: true });
     console.log(`Icons written to ${icons}`);
-
-    // The resize cursors.
-    mkdirSync(cursors, { recursive: true });
-    for (const name of RESIZE_CURSORS) {
-      for (const size of CURSOR_SIZES) writeFileSync(join(cursors, `${name}-${size}.png`), await render(join(app, "public", "cursors", `resize-${name}.svg`), size));
-    }
-    console.log(`Cursors written to ${cursors}`);
   });
 } finally {
   // Edge can hold its profile for a moment after it was asked to quit; a leftover temp folder is harmless.

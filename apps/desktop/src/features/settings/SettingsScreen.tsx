@@ -10,6 +10,7 @@ import { ConfirmDialog, Modal } from "@/components/primitives/Dialog";
 import { Badge } from "@/components/primitives/Display";
 import { Textarea } from "@/components/primitives/Input";
 import { Kbd } from "@/components/primitives/Kbd";
+import { GpuDriverWarning } from "@/components/setup/GpuDriverWarning";
 import { WebChatOptions } from "@/features/webchat/WebChatOptions";
 import { useProviders } from "@/hooks/useProviders";
 import { api } from "@/services/engine";
@@ -306,6 +307,11 @@ function Listening() {
           </Button>
         }
       />
+      {models.data?.gpu.warning ? (
+        <div className="py-3.5">
+          <GpuDriverWarning warning={models.data.gpu.warning} />
+        </div>
+      ) : null}
     </Card>
   );
 }
@@ -316,6 +322,7 @@ function General({ onEditShortcuts }: { onEditShortcuts: () => void }) {
   const closeToTray = usePrefs((p) => p.closeToTray);
   const minimizeToBubble = usePrefs((p) => p.minimizeToBubble);
   const customCursor = usePrefs((p) => p.customCursor);
+  const freezePointer = usePrefs((p) => p.freezePointer);
   const sidePanel = usePrefs((p) => p.sidePanelOpen);
   const hotkeys = usePrefs((p) => p.hotkeys);
   const set = usePrefs((p) => p.set);
@@ -384,8 +391,13 @@ function General({ onEditShortcuts }: { onEditShortcuts: () => void }) {
       ) : null}
       <Row
         title="Custom pointer"
-        description="While the mouse is over ZHU, the pointer takes ZHU's own look; it gains a spark over anything you can click. Outside ZHU it is your normal Windows pointer."
+        description="Over ZHU the pointer is always an arrow. With this on it is ZHU's own violet arrow; off, it is the Windows arrow. While ZHU is hidden it is always your own Windows arrow."
         control={<Switch checked={customCursor} label="Use ZHU's own pointer" onCheckedChange={(v) => set({ customCursor: v })} />}
+      />
+      <Row
+        title="Freeze the pointer while hidden"
+        description="While ZHU is hidden, the real pointer stops where it enters ZHU and an arrow that looks just like your own Windows pointer moves instead, over all of ZHU including the title bar; screen sharing leaves that arrow out. Viewers see the pointer stand still, then glide on to where you leave ZHU. Dragging the title bar moves the window; at the very edge of the window the real pointer is back, so you can resize it. Experimental: switch it off if a click or drag does not behave."
+        control={<Switch checked={freezePointer} label="Freeze the pointer while hidden" onCheckedChange={(v) => set({ freezePointer: v })} />}
       />
       <Row
         title="Floating icon when minimized"

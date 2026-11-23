@@ -86,13 +86,14 @@ describe("hide from the taskbar, Alt+Tab and screen capture", () => {
     expect(screen.getByRole("button", { name: HIDE })).toBeTruthy();
   });
 
-  it("gives the mouse pointer back to Windows while ZHU is hidden (a screen share shows the pointer)", async () => {
+  it("gives the mouse pointer back to Windows while ZHU is hidden: the Windows arrow (a screen share shows the pointer)", async () => {
     const { AppProviders } = await import("@/app/providers/AppProviders");
     const root = document.documentElement;
     const { unmount } = render(<AppProviders toasts={false}><span /></AppProviders>);
     await listening();
     await waitFor(() => expect(root.style.getPropertyValue("--zhu-cursor")).not.toBe(""));
     act(() => shellEvent!(true));
+    // Unset, the one cursor rule falls back to the Windows arrow (sidepanel.test.ts checks the rule).
     expect(root.style.getPropertyValue("--zhu-cursor")).toBe("");
     act(() => shellEvent!(false));
     expect(root.style.getPropertyValue("--zhu-cursor")).not.toBe("");

@@ -14,6 +14,11 @@ Rules that follow from living in somebody else's process:
     while the engine is still starting is kept and carried out as soon as the server exists.
   * One run at a time. A run closes what it opened (``serve`` sees to that), so the engine can
     be started again in the same process.
+  * ``zhu.exe`` is a windowed program: started from the Start menu it has no console, and Python
+    then sets ``sys.stdout`` and ``sys.stderr`` to None. Libraries that write to them directly
+    (the download progress bar of huggingface_hub, for one) fail with "'NoneType' object has no
+    attribute 'write'", so ``run`` gives them a place to write that discards the text. The log
+    file has what matters.
 
 What this cannot do: survive a crash inside a native library (speech recognition, graphics):
 that ends the process it happens in. See engine.rs for what the shell does about it.
@@ -25,6 +30,7 @@ import ctypes
 import gc
 import logging
 import os
+import sys
 import threading
 import traceback
 from typing import Callable, Optional
@@ -68,6 +74,13 @@ def _hold(stop: Optional[Callable[[], None]]) -> None:
         stop()
 
 
+def _give_std_streams() -> None:
+    """Missing standard streams (a process without a console) become ones that discard what is written."""
+    for name, mode in (("stdin", "r"), ("stdout", "w"), ("stderr", "w")):
+        if getattr(sys, name) is None:
+            setattr(sys, name, open(os.devnull, mode, encoding="utf-8"))
+
+
 def _native_report(address: int) -> Report:
     """The shell's callback, given as the address of a C function ``void(const char*, const char*)``."""
     function = ctypes.CFUNCTYPE(None, ctypes.c_char_p, ctypes.c_char_p)(address)
@@ -90,6 +103,7 @@ def run(token: str, data_dir: Optional[str] = None, report: Report | int | None 
             return
         _active, _stop, _stop_wanted = True, None, False
     try:
+        _give_std_streams()
         serve(token, port=0, data_dir=data_dir, log_level=log_level or os.environ.get("ZHU_LOG_LEVEL", "INFO"),
               on_ready=lambda port: tell("ready", str(port)), on_server=_hold)
         tell("stopped", "")

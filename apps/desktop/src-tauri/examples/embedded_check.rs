@@ -54,7 +54,14 @@ fn main() {
             fail(&format!("/api/health gave {health}"));
         }
         let gpu: serde_json::Value = serde_json::from_str(&get(port, "/api/system/gpu", &token)).unwrap_or_default();
-        println!("start {round}: ready on port {port}, version {}, CUDA available: {}", health["version"], gpu["cuda_available"]);
+        println!(
+            "start {round}: ready on port {port}, version {}; GPU: {} ({} MB), CUDA available: {}{}",
+            health["version"],
+            gpu["device_name"].as_str().unwrap_or("none found"),
+            gpu["vram_total_mb"],
+            gpu["cuda_available"],
+            gpu["error"].as_str().map(|e| format!(" ({e})")).unwrap_or_default()
+        );
         if !embedded::stop(Duration::from_secs(15)) {
             fail(&format!("start {round}: the engine did not take the request to stop"));
         }

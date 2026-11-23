@@ -47,75 +47,10 @@
   ::selection {
     background: var(--zhu-accent-soft);
   }
-  /*
-   * ZHU's own pointer (Settings → App → Custom pointer). The three --zhu-cursor* variables are set
-   * on <html> by styles/cursors.ts; while they are unset, every rule below falls back to the
-   * standard cursor. Windows draws the images, so the pointer moves exactly as fast as the normal
-   * one. cursorKindFor() in cursors.ts makes the same choices as these rules: keep them in step.
-   */
-  html {
-    cursor: var(--zhu-cursor, auto);
-  }
-  /* Things that can be clicked. */
-  button,
-  a[href],
-  select,
-  summary,
-  label[for],
-  input[type="checkbox"],
-  input[type="radio"],
-  input[type="file"],
-  [role="button"],
-  [role="tab"],
-  [role="option"],
-  [role="menuitem"],
-  [role="checkbox"],
-  [role="switch"],
-  [role="radio"] {
-    cursor: var(--zhu-cursor-action, default);
-  }
-  a[href] {
-    cursor: var(--zhu-cursor-action, pointer);
-  }
-  button:disabled,
-  [aria-disabled="true"],
-  [data-disabled] {
-    cursor: var(--zhu-cursor, default);
-  }
-  /* Bars that resize panes (SplitHandle); while one is dragged, the whole window keeps its arrow. */
-  [data-split="columns"],
-  html.zhu-resizing-columns,
-  html.zhu-resizing-columns * {
-    cursor: var(--zhu-cursor-ew, col-resize) !important;
-  }
-  [data-split="rows"],
-  html.zhu-resizing-rows,
-  html.zhu-resizing-rows * {
-    cursor: var(--zhu-cursor-ns, row-resize) !important;
-  }
+  /* While a divider between panes (SplitHandle) is dragged, no text is selected along the way. */
   html.zhu-resizing-columns *,
   html.zhu-resizing-rows * {
     user-select: none !important;
-  }
-  /* Text that can be typed into. */
-  textarea,
-  input:not([type]),
-  input[type="text"],
-  input[type="password"],
-  input[type="search"],
-  input[type="email"],
-  input[type="url"],
-  input[type="number"],
-  [contenteditable="true"] {
-    cursor: var(--zhu-cursor-text, text);
-  }
-  /*
-   * Text that can be selected: the beam shows over the text itself (paragraphs, list items, code,
-   * table cells), not over the empty parts of the panel that holds it. :where keeps this weaker
-   * than the rules above, so a button inside such text keeps its own cursor.
-   */
-  :where(p, span, li, pre, code, h1, h2, h3, h4, td, th, blockquote, em, strong):where(.selectable, .selectable *) {
-    cursor: var(--zhu-cursor-text, auto);
   }
   /* Thin, theme-aware scrollbars (Windows WebView2 honours ::-webkit-scrollbar). */
   * {
@@ -202,6 +137,21 @@
 }
 
 /*
+ * The pointer is the arrow everywhere in ZHU, and nothing else: no hand over buttons and links, no
+ * text beam over text boxes and text, no resize arrows over the dividers. --zhu-cursor is ZHU's own
+ * arrow (Settings → App → Custom pointer, set by styles/cursors.ts); while it is unset (switched
+ * off, or ZHU is hidden, where a screen share would show ZHU's arrow) it is the Windows arrow.
+ * Typing, clicking, selecting and dragging work as always. !important, so that no other rule
+ * (a library's, or a Tailwind cursor-* class) brings another pointer back.
+ */
+html,
+html *,
+html *::before,
+html *::after {
+  cursor: var(--zhu-cursor, default) !important;
+}
+
+/*
  * Along the window's edges the browser engine will not show a custom cursor (see cursors.ts), so
  * there the system pointer is hidden and the page draws the same image, following the mouse.
  */
@@ -275,7 +225,6 @@ html[data-window="bubble"] body {
 }
 body.zhu-dragging,
 body.zhu-dragging * {
-  cursor: grabbing !important;
   user-select: none !important;
   -webkit-user-select: none !important;
 }

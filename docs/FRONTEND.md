@@ -27,6 +27,7 @@ main.tsx ─ picks the root by window label (main | bubble: the floating icon sh
 * **Event dispatch** (`services/dispatch`): batched per animation frame (a hidden window flushes in a microtask) into separate Zustand stores. `transcript` is a bounded ring keyed by segment, where a newer revision replaces an older one. `questions` holds revision-guarded upserts. The other stores are `session`, `composer` (drafts per provider), `ui` (navigation and toasts), and `prefs` (theme, density, sidebar, window opacity, hotkeys, Enter-to-send; synced across windows through `zhu://prefs`).
 * **REST** (`services/engine`): one typed function per engine route. Images are fetched with the auth header as blobs and revoked on unmount.
 * **Shell** (`services/shell`): typed wrappers for the Rust commands. Every wrapper fails gracefully outside Tauri.
+* **Opacity** (`app/state/opacity`): the everyday level is a preference; the hidden level starts at 80% on the eye button. A ZHU that closed hidden opens hidden, and the page takes the level it had from the shell (`hidden_opacity`). No opacity is applied until the shell has said whether ZHU is hidden, so a page loading in a hidden ZHU never makes it opaque for a moment.
 
 ## Design system
 
@@ -38,13 +39,15 @@ One file, `apps/desktop/public/zhu-mark.svg`, is the app's only icon: `Logo` (ti
 
 ## Pointer
 
-ZHU's own pointer has three parts, all switched by the Custom pointer preference:
+The pointer over ZHU is always an arrow, and nothing else (no hand, text beam or resize arrows). Three places make sure of that:
 
-* **Inside the window** `styles/cursors.ts` builds three 24 px SVG cursors (arrow, the arrow with a spark for clickable things, text beam) and sets them as `--zhu-cursor`, `--zhu-cursor-action` and `--zhu-cursor-text` on `<html>`. Every cursor rule in `globals.css`, including Tailwind's `cursor-default|pointer|text`, falls back to the standard cursor while the variables are unset. These are ordinary CSS cursors: Windows draws them.
-* **In a strip along the edges** the browser engine refuses a custom cursor whenever part of its image would reach past the window, whatever the image's size (measured with 32, 24 and 16 px images: the standard arrow appeared across exactly the image's reach to the right of and below the pointer). There `followAtEdges` hides the system pointer (`cursor: none`) and moves an `<img>` of the same cursor with the mouse; `cursorKindFor` picks the variant with the same choices as the CSS rules. At the very edge the image is cut off by the window, as any page content is.
-* **On the resize border** (the invisible frame around the frameless window, and the thin native strip along its top) the page has no say: Windows asks the window which cursor to show. `src-tauri/src/resize_cursor.rs` answers `WM_SETCURSOR` for the eight resize positions with ZHU's double arrows, made from the PNGs that `npm run icons` renders from `public/cursors/resize-*.svg`.
+* **Inside the window** one rule in `globals.css` gives every element `cursor: var(--zhu-cursor, default) !important`, so no other rule (a library's, or a Tailwind `cursor-*` class) can bring another pointer back. With the Custom pointer preference on and ZHU not hidden, `styles/cursors.ts` sets `--zhu-cursor` on `<html>` to ZHU's 24 px SVG arrow, an ordinary CSS cursor that Windows draws; otherwise the variable is unset and the rule gives the Windows arrow. While ZHU is hidden (bars.rs) the page's pointer is always the Windows arrow, because a screen share shows the pointer over a window it leaves out (and with the frozen pointer, below, the real pointer does not come over ZHU's content at all).
+* **In a strip along the edges** the browser engine refuses a custom cursor whenever part of its image would reach past the window, whatever the image's size (measured with 32, 24 and 16 px images: the standard arrow appeared across exactly the image's reach to the right of and below the pointer). There `followAtEdges` hides the system pointer (`cursor: none`) and moves an `<img>` of the same arrow with the mouse. At the very edge the image is cut off by the window, as any page content is.
+* **On the resize border** (the invisible frame around the frameless window, and the thin native strip along its top) the page has no say: Windows asks the window which cursor to show and, unanswered, shows its resize arrows. `src-tauri/src/resize_cursor.rs` answers `WM_SETCURSOR` for the eight resize positions with the standard arrow; dragging still resizes.
 
-Chat websites opened in a tab keep the standard pointer: they are separate pages in their own browser view.
+While ZHU is hidden, with "Freeze the pointer while hidden" on (pref `freezePointer`, sent to the shell with `set_freeze_pointer`), the real pointer does not come over ZHU's page at all, title bar included: `src-tauri/src/pointer_freeze.rs` keeps it where it entered and moves a stand-in arrow (the arrow of the user's Windows pointer scheme: a hidden ZHU never shows its violet arrow), and posts the mouse messages to the page under it. The page needs nothing for that: it receives ordinary mouse events. Its title bar keeps `data-tauri-drag-region`: the drag that Tauri asks Windows for is taken over in the shell and the window follows the arrow. The window's resize border is left out of the freezing, so the real pointer resizes there as always.
+
+Chat websites opened in a tab are separate pages in their own browser view; `webchat.rs` adopts a style sheet with `cursor: default !important` for every element into each page as it loads (`POINTER_JS`), so they show the Windows arrow.
 
 ## Verified in the running app (2026-11-17, RTX 5060 laptop, 125% scaling)
 

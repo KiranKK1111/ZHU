@@ -39,7 +39,7 @@ export function HideFromBarsButton() {
         if (next)
           toast.info(
             "Hidden from the taskbar, Alt+Tab and screen capture",
-            "ZHU now stays on top of other windows, is left out of screenshots and screen sharing, and is 80% opaque (the opacity button changes that). Press the eye again to put it back.",
+            "ZHU now stays on top of other windows, has no icon in the system tray, is left out of screenshots and screen sharing, and is 80% opaque (the opacity button changes that). Minimized, the floating icon brings it back. It stays hidden when ZHU is opened again, until you press the eye again.",
           );
       })
       .catch((err) => toast.error("Could not change this", errorMessage(err)));

@@ -138,51 +138,28 @@ describe("dragging a screenshot", () => {
 });
 
 describe("ZHU's pointer", () => {
-  it("has an arrow, a clickable variant and a text beam, each with its hot spot inside the image", async () => {
-    const { CURSOR_SIZE, ZHU_CURSORS } = await import("@/styles/cursors");
-    for (const kind of ["arrow", "action", "text"] as const) {
-      const c = ZHU_CURSORS[kind];
-      expect(c.css).toMatch(/^url\("data:image\/svg\+xml,[^"]+"\) \d+ \d+, (default|pointer|text)$/);
-      expect(decodeURIComponent(c.src)).toContain(`width="${CURSOR_SIZE}" height="${CURSOR_SIZE}"`);
-      expect(c.hotX).toBeGreaterThanOrEqual(0);
-      expect(c.hotX).toBeLessThan(CURSOR_SIZE);
-      expect(c.hotY).toBeLessThan(CURSOR_SIZE);
-    }
-    expect([ZHU_CURSORS.arrow.hotX, ZHU_CURSORS.arrow.hotY]).toEqual([2, 2]); // the tip
-    expect([ZHU_CURSORS.text.hotX, ZHU_CURSORS.text.hotY]).toEqual([12, 12]); // the middle
+  it("is one arrow, with its hot spot at the tip and the Windows arrow as fallback", async () => {
+    const { CURSOR_SIZE, ZHU_ARROW } = await import("@/styles/cursors");
+    expect(ZHU_ARROW.css).toMatch(/^url\("data:image\/svg\+xml,[^"]+"\) 2 2, default$/);
+    expect(decodeURIComponent(ZHU_ARROW.src)).toContain(`width="${CURSOR_SIZE}" height="${CURSOR_SIZE}"`);
+    expect([ZHU_ARROW.hotX, ZHU_ARROW.hotY]).toEqual([2, 2]); // the tip
   });
 
-  it("chooses the same pointer the style rules choose", async () => {
-    const { cursorKindFor } = await import("@/styles/cursors");
-    document.body.innerHTML = `
-      <div id="plain">x</div>
-      <button id="b"><span id="inb">Go</span></button>
-      <button id="off" disabled>No</button>
-      <div role="menuitem" class="cursor-default" id="menu">Item</div>
-      <a href="#" id="link">l</a>
-      <textarea id="ta"></textarea><input id="in" /><input type="checkbox" id="cb" />
-      <div class="selectable" id="panel"><p id="para">Text <button id="copy">Copy</button></p></div>
-      <p id="loose">not selectable</p>`;
-    const kind = (id: string) => cursorKindFor(document.getElementById(id));
-    expect(kind("plain")).toBe("arrow");
-    expect(kind("b")).toBe("action");
-    expect(kind("inb")).toBe("action"); // anything inside a button
-    expect(kind("off")).toBe("arrow");
-    expect(kind("menu")).toBe("arrow");
-    expect(kind("link")).toBe("action");
-    expect(kind("ta")).toBe("text");
-    expect(kind("in")).toBe("text");
-    expect(kind("cb")).toBe("action");
-    expect(kind("para")).toBe("text"); // text that can be selected
-    expect(kind("panel")).toBe("arrow"); // but not the empty part of its panel
-    expect(kind("copy")).toBe("action"); // a button inside such text
-    expect(kind("loose")).toBe("arrow");
-    expect(cursorKindFor(null)).toBe("arrow");
+  it("is the only pointer: one rule gives every element the arrow, and no other rule sets a pointer", async () => {
+    const { readFileSync } = await import("node:fs");
+    const { resolve } = await import("node:path");
+    const read = (file: string) => readFileSync(resolve(__dirname, "../src/styles", file), "utf8");
+    const css = read("globals.css");
+    expect(css).toMatch(/html,\s*html \*,\s*html \*::before,\s*html \*::after\s*\{\s*cursor: var\(--zhu-cursor, default\) !important;/);
+    // Every cursor declaration: the arrow rule, and "none" where the page draws the arrow itself.
+    const values = [...css.matchAll(/cursor:\s*([^;]+);/g)].map((m) => m[1].trim());
+    expect(values.sort()).toEqual(["none !important", "var(--zhu-cursor, default) !important"]);
+    expect(read("chat.css")).not.toMatch(/cursor:/);
   });
 
   it("is drawn by the page exactly where its image would reach past the window, and nowhere else", async () => {
-    const { installZhuCursors, reachesPastEdge, ZHU_CURSORS } = await import("@/styles/cursors");
-    const arrow = ZHU_CURSORS.arrow; // 24 px image, hot spot 2,2
+    const { installZhuCursors, reachesPastEdge, ZHU_ARROW } = await import("@/styles/cursors");
+    const arrow = ZHU_ARROW; // 24 px image, hot spot 2,2
     expect(reachesPastEdge(arrow, 500, 300, 1000, 800)).toBe(false);
     expect(reachesPastEdge(arrow, 976, 300, 1000, 800)).toBe(false); // 976 - 2 + 24 = 998: still inside
     expect(reachesPastEdge(arrow, 978, 300, 1000, 800)).toBe(true); // the right strip
@@ -207,7 +184,7 @@ describe("ZHU's pointer", () => {
     expect(follower.style.transform).toBe("translate(988px, 298px)"); // with its tip on the mouse
     expect(follower.getAttribute("src")).toBe(arrow.src);
     move("b", 990, 300);
-    expect(follower.getAttribute("src")).toBe(ZHU_CURSORS.action.src); // the clickable variant over a button
+    expect(follower.getAttribute("src")).toBe(arrow.src); // the arrow over a button too
     move("plain", 500, 300);
     expect(root.classList.contains("zhu-cursor-at-edge")).toBe(false);
     expect(follower.style.display).toBe("none");

@@ -414,6 +414,25 @@ export interface GpuInfo {
   temperature_c: number | null;
   compute_types: string[] | null;
   error: string | null;
+  /** The graphics cards Windows sees, with or without a driver. */
+  adapters?: DisplayAdapter[];
+  /** Set when a graphics card cannot be used for want of its driver. */
+  warning?: GpuWarning | null;
+}
+
+export interface DisplayAdapter {
+  name: string;
+  vendor: string;
+  /** ok: its maker's driver is installed and working. */
+  state: "ok" | "no_driver" | "disabled" | "problem";
+  problem_code: number;
+}
+
+export interface GpuWarning {
+  title: string;
+  message: string;
+  /** Where to get the driver, when there is one place for it. */
+  driver_url: string | null;
 }
 
 export interface ModelsStatus {

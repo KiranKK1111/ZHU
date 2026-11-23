@@ -218,7 +218,7 @@ function ScreenshotTile({
           if (selecting) onToggle();
           else onOpen();
         }}
-        className="block w-full cursor-grab touch-none active:cursor-grabbing"
+        className="block w-full touch-none"
       >
         <Thumb id={shot.id} alt={label} fill className="aspect-[16/10] w-full" />
       </button>

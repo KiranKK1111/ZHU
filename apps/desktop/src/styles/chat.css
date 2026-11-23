@@ -102,7 +102,6 @@
   text-decoration: underline;
   text-decoration-color: color-mix(in srgb, var(--zhu-accent) 40%, transparent);
   text-underline-offset: 3px;
-  cursor: var(--zhu-cursor-action, pointer);
 }
 .zhu-md a:hover {
   text-decoration-color: var(--zhu-accent);

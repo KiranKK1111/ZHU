@@ -69,8 +69,9 @@ function ThemeEffect() {
     root.dataset.density = "comfortable";
   }, [theme, systemDark]);
 
-  // ZHU's own pointer, for as long as the preference is on and ZHU is not hidden. A screen share
-  // or recording shows the mouse pointer as it is, so over a hidden ZHU it stays the Windows one.
+  // ZHU's own arrow, for as long as the preference is on and ZHU is not hidden. A screen share
+  // or recording shows the mouse pointer as it is, so over a hidden ZHU it is the Windows arrow.
+  // Either way it is only ever the arrow (globals.css).
   useEffect(() => (customCursor && !hidden ? installZhuCursors() : undefined), [customCursor, hidden]);
   return null;
 }

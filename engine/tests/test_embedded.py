@@ -131,6 +131,33 @@ def test_a_failure_is_reported_and_nothing_escapes(tmp_path, no_real_keys, monke
     assert not embedded.running() and entry.serve is not breaks
 
 
+def test_a_process_without_a_console_can_still_download(tmp_path, monkeypatch):
+    """zhu.exe has no console, so Python gives it no stdout or stderr. A library that writes to them
+    (the progress bar of a model download) failed with "'NoneType' object has no attribute 'write'"."""
+    monkeypatch.setattr("sys.stdout", None)
+    monkeypatch.setattr("sys.stderr", None)
+    monkeypatch.setattr("sys.stdin", None)
+    written: list[str] = []
+
+    def serve_that_writes(*args, **kwargs):
+        import sys
+
+        sys.stderr.write("\r 42%|####      | 1.2G/3.0G")  # what tqdm does
+        sys.stdout.write("progress\n")
+        sys.stderr.flush()
+        written.append(sys.stdin.read())
+
+    monkeypatch.setattr(embedded, "serve", serve_that_writes)
+    reports: list[tuple[str, str]] = []
+    embedded.run(TOKEN, str(tmp_path), lambda kind, text: reports.append((kind, text)))
+    assert reports == [("stopped", "")]
+    assert written == [""]
+    import sys
+
+    for stream in (sys.stdin, sys.stdout, sys.stderr):  # the ones run() made; the test's own come back after
+        stream.close()
+
+
 def test_the_native_callback_form(tmp_path, no_real_keys):
     """The shell passes its callback as the address of a C function."""
     import ctypes

@@ -4,10 +4,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 /** The shell as the main window sees it: the hide switch, and where the opacity goes. */
 let announceHidden: ((hidden: boolean) => void) | undefined;
 let shellSaysHidden = false;
+/** The opacity ZHU had while hidden when it last closed (null: never hidden yet). */
+let shellKeptLevel: number | null = null;
 const applied = vi.fn(async (_opacity: number) => undefined);
 vi.mock("@/services/shell", () => ({
   inTauri: true,
-  shell: { hiddenFromBars: async () => shellSaysHidden, setWindowOpacity: (opacity: number) => applied(opacity) },
+  shell: {
+    hiddenFromBars: async () => shellSaysHidden,
+    hiddenOpacity: async () => shellKeptLevel,
+    setWindowOpacity: (opacity: number) => applied(opacity),
+  },
   onShellEvent: async (name: string, handler: (hidden: boolean) => void) => {
     if (name === "zhu://hidden-from-bars") announceHidden = handler;
     return () => undefined;
@@ -30,8 +36,9 @@ const lastApplied = () => applied.mock.calls.at(-1)?.[0];
 beforeEach(() => {
   announceHidden = undefined;
   shellSaysHidden = false;
+  shellKeptLevel = null;
   applied.mockClear();
-  useHiddenLook.setState({ hidden: false, hiddenLevel: HIDDEN_OPACITY });
+  useHiddenLook.setState({ hidden: false, known: false, hiddenLevel: HIDDEN_OPACITY });
   usePrefs.getState().set({ windowOpacity: 1 });
 });
 afterEach(cleanup);
@@ -66,6 +73,22 @@ describe("opacity", () => {
     shellSaysHidden = true;
     render(<Probe />);
     await waitFor(() => expect(lastApplied()).toBe(0.8));
+  });
+
+  it("opens hidden at the level it had when ZHU closed hidden", async () => {
+    usePrefs.getState().set({ windowOpacity: 0.95 });
+    shellSaysHidden = true;
+    shellKeptLevel = 0.6;
+    render(<Probe />);
+    await waitFor(() => expect(lastApplied()).toBe(0.6));
+    expect(screen.getByText("60%")).toBeTruthy();
+    // Nothing else was applied before: not the everyday level, which the shell would keep as the hidden one.
+    expect(applied.mock.calls.map((c) => c[0])).toEqual([0.6]);
+    // Shown again: the everyday level; hidden again with the eye: 80%, as always.
+    act(() => announceHidden!(false));
+    expect(lastApplied()).toBe(0.95);
+    act(() => announceHidden!(true));
+    expect(lastApplied()).toBe(0.8);
   });
 
   it("stays within the range the slider offers", () => {

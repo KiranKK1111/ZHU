@@ -20,6 +20,9 @@ import { useModelSync } from "@/features/chat/useModelChoice";
 import { HOTKEY_LABELS, type HotkeyAction, type TrayAction, type WebChatEvent } from "@/types/shell";
 import { errorMessage } from "@/utils/format";
 
+/** The graphics driver warning has been shown since ZHU started. */
+let gpuWarned = false;
+
 export default function MainApp() {
   useOpacitySync(); // before the engine is ready too: the window itself is see-through or not
   return (
@@ -38,11 +41,21 @@ function MainConnected() {
   const setupOpen = useNav((s) => s.setupOpen);
   const setSetupOpen = useNav((s) => s.setSetupOpen);
 
+  // One-time first-run setup: only while no model is installed and the user has not skipped it.
+  const firstRun = !!models.data?.setup_required && !skipped;
+
+  // A graphics card without its driver is said once per start (the setup screen and Settings →
+  // Listening show the whole warning, with where to get the driver).
+  const gpuWarning = models.data?.gpu.warning;
+  useEffect(() => {
+    if (!gpuWarning || gpuWarned || firstRun) return;
+    gpuWarned = true;
+    toast.error(gpuWarning.title, "Settings → Listening says what to do.");
+  }, [gpuWarning, firstRun]);
+
   // Wait for the model status so the workspace never flashes before first-run setup.
   if (models.isLoading) return <div className="h-full bg-bg" aria-busy />;
 
-  // One-time first-run setup: only while no model is installed and the user has not skipped it.
-  const firstRun = !!models.data?.setup_required && !skipped;
   if (firstRun || (setupOpen && models.data)) {
     return (
       <ModelSetup
@@ -83,12 +96,11 @@ function useShellIntegration() {
     void shell.setCloseToTray(closeToTray).catch(() => undefined);
   }, [closeToTray]);
 
-  // The page styles the pointer inside the window; the shell draws the resize cursors at its edges.
-  const customCursor = usePrefs((p) => p.customCursor);
+  const freezePointer = usePrefs((p) => p.freezePointer);
   useEffect(() => {
     if (!inTauri) return;
-    void shell.setCustomCursor(customCursor).catch(() => undefined);
-  }, [customCursor]);
+    void shell.setFreezePointer(freezePointer).catch(() => undefined);
+  }, [freezePointer]);
 
   const minimizeToBubble = usePrefs((p) => p.minimizeToBubble);
   useEffect(() => {

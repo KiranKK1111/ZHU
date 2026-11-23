@@ -14,6 +14,8 @@ export interface Prefs {
   minimizeToBubble: boolean;
   /** Show ZHU's own pointer while the mouse is over a ZHU window. */
   customCursor: boolean;
+  /** While ZHU is hidden, the real pointer stands still over ZHU and ZHU moves its own arrow (pointer_freeze.rs). */
+  freezePointer: boolean;
   hotkeys: Record<HotkeyAction, string>;
   /** How see-through ZHU's windows are, from 0.4 to 1 (see state/opacity.ts; hidden ZHU has its own level). */
   windowOpacity: number;
@@ -53,6 +55,7 @@ export const DEFAULT_PREFS: Prefs = {
   closeToTray: true,
   minimizeToBubble: true,
   customCursor: true,
+  freezePointer: true,
   hotkeys: { ...DEFAULT_HOTKEYS },
   windowOpacity: 1,
   modelSetupSkipped: false,

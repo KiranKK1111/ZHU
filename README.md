@@ -60,7 +60,7 @@ Audio is never uploaded and never saved. A question leaves your computer only wh
 | **Your résumé** | Upload it once and questions about you are answered from it, in your voice. |
 | **Your layout** | Drag the lines between questions, answers and transcript to size them your way. ZHU remembers it. |
 | **Opacity** | Make ZHU see-through, from 40% to 100%: the whole window, chat tabs included. |
-| **Hide mode** | One button takes ZHU out of the taskbar, Alt+Tab and screen captures, keeps it on top of your screen, and makes it 80% see-through. |
+| **Hide mode** | One button takes ZHU out of the taskbar, the tray, Alt+Tab and screen captures, keeps it on top of your screen, and makes it 80% see-through. Over ZHU the real pointer stands still for viewers while ZHU's own arrow moves for you. |
 | **One process** | The engine runs inside ZHU itself: one entry in Task Manager. If it ever stops, the window stays and **Restart engine** brings it back. |
 | **History** | Every session with its questions and answers, to reopen, export or delete. |
 
@@ -72,7 +72,7 @@ Audio is never uploaded and never saved. A question leaves your computer only wh
 |---|---|
 | System | Windows 10 (21H2 or later) or Windows 11, 64-bit |
 | Memory | 8 GB minimum, 16 GB recommended |
-| Graphics | Optional. An NVIDIA card (driver 550 or later) makes transcription faster; without one ZHU uses the processor |
+| Graphics | Optional. An NVIDIA card (driver 550 or later) makes transcription faster; without one ZHU uses the processor. If a card's driver is missing, ZHU says so and links to it |
 
 **Steps**
 
@@ -132,7 +132,7 @@ In the panel on the right, upload **your résumé** (PDF, Word or text). While i
 ### 6. Keep it in view, or out of the way
 
 * **Opacity:** the opacity button in the title bar makes ZHU see-through, so you can read what is behind it. It applies to everything in ZHU, the chat tabs included.
-* **Hide mode:** the eye button in the title bar takes ZHU out of the taskbar, Alt+Tab and screen captures, keeps the main window on top of your other windows, and sets the opacity to 80% (change it as you like while hidden; showing ZHU again brings back your usual opacity). Minimize it and a small floating icon brings it back. Hide mode is off again every time ZHU starts.
+* **Hide mode:** the eye button in the title bar takes ZHU out of the taskbar, Alt+Tab and screen captures, keeps the main window on top of your other windows, and sets the opacity to 80% (change it as you like while hidden; showing ZHU again brings back your usual opacity). Its tray icon goes too. Over ZHU (its title bar too) the real pointer stands still where it entered, so a screen share shows it stopped, while an arrow that looks just like your own Windows pointer moves for you and takes your clicks, scrolling, typing and title-bar drags; when you leave ZHU the real pointer glides to where you left, and at the window's edges it is back so you can resize (Settings → App → **Freeze the pointer while hidden**). Minimize it and a small floating icon brings it back. ZHU opens the way it closed: hidden again (at the opacity it had) if it was, without ever showing in the taskbar or a screen share while it starts.
 
 ### Keyboard shortcuts
 

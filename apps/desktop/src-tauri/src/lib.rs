@@ -14,7 +14,9 @@ mod bubble;
 pub mod embedded;
 mod engine;
 mod opacity;
+mod pointer_freeze;
 mod resize_cursor;
+mod start_state;
 mod webchat;
 
 use engine::{EngineInfo, EngineSupervisor};
@@ -156,6 +158,8 @@ fn show_main(app: AppHandle) {
 #[tauri::command]
 fn set_window_opacity(app: AppHandle, opacity: f64) {
     opacity::set(&app, opacity);
+    // ZHU opens again at the opacity it had (start_state.rs).
+    start_state::remember_opacity(&app, opacity, bars::is_hidden());
 }
 
 /// Take ZHU out of the taskbar, Alt+Tab and screen captures, or put it back (see bars.rs).
@@ -168,6 +172,13 @@ fn set_hidden_from_bars(app: AppHandle, hidden: bool) {
 #[tauri::command]
 fn hidden_from_bars() -> bool {
     bars::is_hidden()
+}
+
+/// The opacity ZHU had while hidden (kept from when it last closed), for a page that has just
+/// loaded in a hidden ZHU.
+#[tauri::command]
+fn hidden_opacity() -> Option<f64> {
+    start_state::hidden_opacity()
 }
 
 #[tauri::command]
@@ -232,11 +243,10 @@ fn recording_state(state: tauri::State<AppState>) -> RecordingState {
     RecordingState { recording: v != 0, paused: v == 2 }
 }
 
-/// The "Custom pointer" preference, for the part of the pointer the shell draws: the resize
-/// cursors at the window edges (the page styles the pointer inside the window itself).
+/// The preference "Freeze the pointer while hidden" (pointer_freeze.rs).
 #[tauri::command]
-fn set_custom_cursor(enabled: bool) {
-    resize_cursor::set_enabled(enabled);
+fn set_freeze_pointer(app: AppHandle, enabled: bool) {
+    pointer_freeze::set_preference(&app, enabled);
 }
 
 /// The floating icon's page reports that it is running (see bubble::start_watchdog).
@@ -283,6 +293,23 @@ async fn export_file(app: AppHandle, default_name: String, contents: String) -> 
     Ok(Some(path.display().to_string()))
 }
 
+/// One line in `logs/shell.log` of the app's data folder, so that what the shell did (the floating
+/// icon, the frozen pointer) can be explained afterwards. Small, and started again when it grows.
+pub(crate) fn shell_log(app: &AppHandle, topic: &str, message: &str) {
+    use std::io::Write;
+    let Ok(dir) = app.path().app_local_data_dir() else { return };
+    let dir = dir.join("data").join("logs");
+    let path = dir.join("shell.log");
+    let _ = std::fs::create_dir_all(&dir);
+    if std::fs::metadata(&path).map(|m| m.len() > 256 * 1024).unwrap_or(false) {
+        let _ = std::fs::remove_file(&path);
+    }
+    let secs = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
+    if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(&path) {
+        let _ = writeln!(f, "{secs} {topic}: {message}");
+    }
+}
+
 fn show_main_window(app: &AppHandle) {
     bubble::hide(app, "ZHU was opened");
     if let Some(w) = app.get_webview_window("main") {
@@ -297,6 +324,19 @@ const SHOW_IN_BARS: &str = "Show in taskbar, Alt+Tab and screen capture";
 
 fn apply_hidden_from_bars(app: &AppHandle, hidden: bool) {
     bars::set_hidden(app, hidden);
+    // ZHU opens again the way it closed (start_state.rs).
+    start_state::remember_hidden(app, hidden);
+    // Over a hidden ZHU the real pointer stands still and ZHU moves its own arrow (pointer_freeze.rs).
+    pointer_freeze::set_hidden(app, hidden);
+    // A window closed to the tray would have no way back once the tray icon goes (below), so it
+    // comes back minimized, where the floating icon stands for it.
+    if hidden {
+        if let Some(main) = app.get_webview_window("main") {
+            if !main.is_visible().unwrap_or(true) {
+                let _ = main.minimize();
+            }
+        }
+    }
     // The floating icon is only for a hidden ZHU (the tray menu can switch this while minimized).
     if hidden {
         bubble::show(app, "ZHU was hidden while minimized");
@@ -304,6 +344,11 @@ fn apply_hidden_from_bars(app: &AppHandle, hidden: bool) {
         bubble::hide(app, "ZHU is in the taskbar again");
     }
     let st = app.state::<AppState>();
+    // No tray icon while ZHU is hidden: the icons by the clock show in every screen share. A
+    // minimized ZHU comes back through the floating icon, or by starting ZHU again.
+    if let Some(tray) = st.tray.lock().unwrap().as_ref() {
+        let _ = tray.set_visible(!hidden);
+    }
     {
         let items_guard = st.tray_items.lock().unwrap();
         if let Some(items) = items_guard.as_ref() {
@@ -487,12 +532,13 @@ pub fn run() {
             show_main,
             set_hidden_from_bars,
             hidden_from_bars,
+            hidden_opacity,
             set_window_opacity,
             set_tray_state,
             set_close_to_tray,
             set_minimize_bubble,
             bubble_alive,
-            set_custom_cursor,
+            set_freeze_pointer,
             recording_state,
             capture_shield,
             set_hotkeys,
@@ -508,22 +554,44 @@ pub fn run() {
         ])
         .setup(move |app| {
             let handle = app.handle().clone();
+            // ZHU opens the way it closed: hidden or not, at the opacity it had (start_state.rs).
+            let start = start_state::load(&handle);
             build_tray(&handle)?;
+            if start.hidden {
+                // Not even for a moment by the clock.
+                if let Some(tray) = handle.state::<AppState>().tray.lock().unwrap().as_ref() {
+                    let _ = tray.set_visible(false);
+                }
+            }
             register_hotkeys(&handle, &default_hotkeys());
             supervisor.start_at_launch(&handle);
             bubble::start_watchdog(app.handle());
-            // ZHU's own resize cursors at the edges of the main window, and the hooks behind the
-            // taskbar switch and the opacity control (the floating icon gets its hooks when it is
-            // made, in bubble.rs).
+            if let Some(level) = start.opacity_at_start() {
+                opacity::set(&handle, level);
+            }
+            // The arrow at the edges of the main window, and the hooks behind the taskbar switch,
+            // the opacity control and the frozen pointer (the floating icon gets its hooks when it
+            // is made, in bubble.rs).
             if let Some(w) = app.get_webview_window("main") {
                 resize_cursor::install(&w);
                 bars::install(&w);
                 opacity::install(&w);
+                pointer_freeze::install(&w);
             }
-            if started_minimized {
+            // The main window is made invisible (tauri.conf.json) and first shown here, once it is
+            // out of the taskbar and captures if ZHU closed hidden. Started with Windows, it stays
+            // in the tray (or, hidden, minimized behind the floating icon).
+            if start.hidden {
+                bars::hide_at_start(&handle);
+            }
+            if !started_minimized {
                 if let Some(main) = app.get_webview_window("main") {
-                    let _ = main.hide();
+                    let _ = main.show();
+                    let _ = main.set_focus();
                 }
+            }
+            if start.hidden {
+                apply_hidden_from_bars(&handle, true);
             }
             Ok(())
         })
@@ -551,7 +619,13 @@ pub fn run() {
                 match window.label() {
                     "main" if !st.quitting.load(Ordering::SeqCst) && st.close_to_tray.load(Ordering::SeqCst) => {
                         api.prevent_close();
-                        let _ = window.hide();
+                        // A hidden ZHU has no tray icon to come back from: it is minimized instead,
+                        // and the floating icon brings it back.
+                        if bars::is_hidden() {
+                            let _ = window.minimize();
+                        } else {
+                            let _ = window.hide();
+                        }
                     }
                     "main" => {
                         // Closing it quits ZHU (close-to-tray is off, or ZHU is quitting already).

@@ -47,6 +47,9 @@ def serve(token: str, port: int = 0, data_dir: Optional[str] = None, log_level: 
     os.environ["FASTAPI_OTEL_AUTO_CONFIGURE"] = "false"
     os.environ["OTEL_SDK_DISABLED"] = "true"
     os.environ["HF_HUB_DISABLE_TELEMETRY"] = "1"
+    # Download progress is measured from the files themselves (stt/models.py); a console progress
+    # bar has nowhere to go in the app.
+    os.environ.setdefault("HF_HUB_DISABLE_PROGRESS_BARS", "1")
 
     from .system.logging_setup import configure_logging
     from .system.paths import default_paths

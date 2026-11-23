@@ -3,8 +3,8 @@
 //! Windows decides the first two from one bit of a window's extended style: a "tool window" has no
 //! taskbar button and is left out of Alt+Tab and Task View. While the switch is on, every ZHU
 //! window (main, floating icon) carries that bit. The windows stay on screen where they
-//! were, ZHU stays in Task Manager, and the tray icon stays, which is the way back to a window
-//! that has been minimized.
+//! were and ZHU stays in Task Manager. Its tray icon goes too (lib.rs, `apply_hidden_from_bars`):
+//! a minimized ZHU comes back through the floating icon, or by starting ZHU again.
 //!
 //! The same switch leaves those windows out of screen captures (screenshots, recordings, screen
 //! sharing): Windows draws them on the display as before and omits them from what a capture
@@ -25,7 +25,7 @@
 //!   * Windows does not move a minimized tool window off screen: it leaves a small title-bar stub
 //!     at the bottom-left of the desktop. The same hook sends it to where minimized windows go.
 //!
-//! The switch is off at every start and is not saved.
+//! ZHU opens the way it closed: hidden again if it was (start_state.rs, `hide_at_start`).
 
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -96,18 +96,29 @@ pub fn set_hidden(app: &AppHandle, hidden: bool) {
     // The switch first, then the windows: the style hook reads it while they change.
     HIDDEN.store(hidden, Ordering::SeqCst);
     let handle = app.clone();
-    let _ = app.run_on_main_thread(move || {
-        protect(&handle);
-        for label in LABELS {
-            if let Some(w) = handle.get_webview_window(label) {
-                imp::apply(&w, hidden);
-            }
+    let _ = app.run_on_main_thread(move || apply_all(&handle, hidden));
+}
+
+/// ZHU closed hidden: hidden again before its main window is first shown, so it never appears in
+/// the taskbar or a capture while it starts. On the main thread, at once (`set_hidden` follows to
+/// do the rest).
+pub fn hide_at_start(app: &AppHandle) {
+    HIDDEN.store(true, Ordering::SeqCst);
+    apply_all(app, true);
+}
+
+/// Every ZHU window as the switch says. On the main thread.
+fn apply_all(app: &AppHandle, hidden: bool) {
+    protect(app);
+    for label in LABELS {
+        if let Some(w) = app.get_webview_window(label) {
+            imp::apply(&w, hidden);
         }
-        // The main window is on top of other windows exactly while ZHU is hidden.
-        if let Some(main) = handle.get_webview_window("main") {
-            let _ = main.set_always_on_top(hidden);
-        }
-    });
+    }
+    // The main window is on top of other windows exactly while ZHU is hidden.
+    if let Some(main) = app.get_webview_window("main") {
+        let _ = main.set_always_on_top(hidden);
+    }
 }
 
 #[cfg(windows)]

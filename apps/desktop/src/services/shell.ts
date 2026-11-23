@@ -37,16 +37,18 @@ export const shell = {
   /** Take ZHU out of the taskbar, Alt+Tab and screen captures, or put it back (see bars.rs). Off at every start. */
   setHiddenFromBars: (hidden: boolean) => call<void>("set_hidden_from_bars", { hidden }),
   hiddenFromBars: () => call<boolean>("hidden_from_bars"),
+  /** The opacity ZHU had while hidden, kept from when it last closed (none before the first time). */
+  hiddenOpacity: () => call<number | null>("hidden_opacity"),
   /** How see-through every ZHU window is, 0 to 1 (Windows' own transparency: covers the chat tabs too). */
   setWindowOpacity: (opacity: number) => call<void>("set_window_opacity", { opacity }),
   setTrayState: (recording: boolean, paused: boolean) => call<void>("set_tray_state", { recording, paused }),
   /** Leave ZHU's own windows out of a capture that is about to be taken (see lib.rs). */
   captureShield: (on: boolean) => call<void>("capture_shield", { on }),
   setMinimizeBubble: (enabled: boolean) => call<void>("set_minimize_bubble", { enabled }),
-  setCustomCursor: (enabled: boolean) => call<void>("set_custom_cursor", { enabled }),
   bubbleAlive: () => call<void>("bubble_alive"),
   recordingState: () => call<{ recording: boolean; paused: boolean }>("recording_state"),
   setCloseToTray: (enabled: boolean) => call<void>("set_close_to_tray", { enabled }),
+  setFreezePointer: (enabled: boolean) => call<void>("set_freeze_pointer", { enabled }),
   setHotkeys: (map: Record<HotkeyAction, string>) => call<Record<HotkeyAction, string | null>>("set_hotkeys", { map }),
   exportFile: (defaultName: string, contents: string) => call<string | null>("export_file", { defaultName, contents }),
   // Embedded web chat tabs (child webviews of the main window).

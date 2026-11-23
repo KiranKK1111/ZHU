@@ -9,6 +9,7 @@ import { WindowControls } from "@/components/layout/TitleBar";
 import { Button } from "@/components/primitives/Button";
 import { ConfirmDialog } from "@/components/primitives/Dialog";
 import { Badge } from "@/components/primitives/Display";
+import { GpuDriverWarning } from "@/components/setup/GpuDriverWarning";
 import { api } from "@/services/engine";
 import type { DownloadProgress, ModelSpec, ModelsStatus } from "@/types/engine";
 import { cn } from "@/utils/cn";
@@ -80,20 +81,24 @@ export function ModelSetup({ status, onDone, onSkip, dismissible }: { status: Mo
             </p>
           </div>
 
-          <div className="zhu-card flex items-center gap-4">
-            <div className={cn("flex h-10 w-10 items-center justify-center rounded-lg", gpu.cuda_available ? "bg-success-soft text-success" : "bg-surface-2 text-fg-2")}>
-              {gpu.cuda_available ? <MemoryStick className="h-5 w-5" /> : <Cpu className="h-5 w-5" />}
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="text-card text-fg">{gpu.cuda_available ? gpu.device_name ?? "NVIDIA GPU" : "No compatible NVIDIA GPU detected"}</div>
-              <div className="text-secondary text-fg-2">
-                {gpu.cuda_available
-                  ? `${formatMb(gpu.vram_total_mb)} VRAM · ${formatMb(gpu.vram_free_mb)} free${gpu.driver_version ? ` · driver ${gpu.driver_version}` : ""}`
-                  : "Local transcription will run in CPU mode. A smaller model is recommended."}
+          {/* A card whose driver is missing is said plainly; "no GPU" would be wrong there. */}
+          {gpu.warning ? <GpuDriverWarning warning={gpu.warning} /> : null}
+          {gpu.cuda_available || !gpu.warning ? (
+            <div className="zhu-card flex items-center gap-4">
+              <div className={cn("flex h-10 w-10 items-center justify-center rounded-lg", gpu.cuda_available ? "bg-success-soft text-success" : "bg-surface-2 text-fg-2")}>
+                {gpu.cuda_available ? <MemoryStick className="h-5 w-5" /> : <Cpu className="h-5 w-5" />}
               </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-card text-fg">{gpu.cuda_available ? gpu.device_name ?? "NVIDIA GPU" : "No compatible NVIDIA GPU detected"}</div>
+                <div className="text-secondary text-fg-2">
+                  {gpu.cuda_available
+                    ? `${formatMb(gpu.vram_total_mb)} VRAM · ${formatMb(gpu.vram_free_mb)} free${gpu.driver_version ? ` · driver ${gpu.driver_version}` : ""}`
+                    : "Local transcription will run in CPU mode. A smaller model is recommended."}
+                </div>
+              </div>
+              <Badge tone={gpu.cuda_available ? "success" : "neutral"}>{gpu.cuda_available ? "GPU acceleration" : "CPU mode"}</Badge>
             </div>
-            <Badge tone={gpu.cuda_available ? "success" : "neutral"}>{gpu.cuda_available ? "GPU acceleration" : "CPU mode"}</Badge>
-          </div>
+          ) : null}
 
           {status.memory_warning ? (
             <div role="note" className="flex items-start gap-3 rounded-lg border border-warning/40 bg-warning-soft px-4 py-3 text-secondary text-fg">

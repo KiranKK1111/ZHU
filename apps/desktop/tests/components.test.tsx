@@ -1,8 +1,8 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-const asked = vi.fn(async (..._a: unknown[]) => true);
-vi.mock("@/services/ask", () => ({ askQuestion: (...a: unknown[]) => asked(...a), bindQueryClient: () => undefined }));
+const sent = vi.fn(async (..._a: unknown[]) => undefined);
+vi.mock("@/services/webchatDelivery", () => ({ sendQuestionToChats: (...a: unknown[]) => sent(...a) }));
 
 import { TooltipProvider } from "@/components/primitives/Tooltip";
 import { QuestionCard } from "@/components/questions/QuestionCard";
@@ -18,12 +18,13 @@ function question(patch: Partial<Question>): Question {
 const show = (q: Question) => render(<TooltipProvider><QuestionCard question={q} /></TooltipProvider>);
 
 describe("question card", () => {
-  it("shows the question and asks the model with one button", () => {
+  it("shows the question and sends it to the chats with one button", () => {
     const q = question({});
     show(q);
     expect(screen.getByText("What is a mutex?")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Answer" }));
-    expect(asked).toHaveBeenCalledWith(q);
+    expect(screen.queryByRole("button", { name: /Answer/ })).toBeNull(); // answers come from the chats
+    fireEvent.click(screen.getByRole("button", { name: "Send to chat" }));
+    expect(sent).toHaveBeenCalledWith(q);
   });
 
   it("says in words when a question is still being spoken or needs a second look", () => {

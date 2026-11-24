@@ -9,14 +9,28 @@ vi.mock("@/services/shell", () => ({
   shell: { webchatOpen: (...a: unknown[]) => open(...a), webchatDeliver: (...a: unknown[]) => deliver(...a) },
   broadcast: async () => undefined,
 }));
+let chatContext: ChatContext | null = null;
+vi.mock("@/services/engine", () => ({
+  api: { chatContext: async () => chatContext },
+  fetchBlob: async () => new Blob(),
+}));
 
 import { usePrefs } from "@/app/state/prefs";
 import { useSession } from "@/app/state/session";
 import { useWebChat } from "@/app/state/webchat";
 import { isInsecureRemote } from "@/features/settings/ModelsSection";
 import { CHAT_SERVICES, hostOf, newTabId, normalizeChatUrl, withInstructions } from "@/features/webchat/services";
-import { describeResult, onQuestionEvent, onScreenshotEvent, targetTabs } from "@/services/webchatDelivery";
-import type { Question } from "@/types/engine";
+import { describeResult, onQuestionEvent, onScreenshotEvent, sendQuestionToChats, targetTabs } from "@/services/webchatDelivery";
+import type { ChatContext, Question } from "@/types/engine";
+
+/** The resume as the engine hands it to chat sites (resume.chat_context). */
+const CTX: ChatContext = {
+  marker: "zhu-1a2b3c4d",
+  file_name: "resume-zhu-1a2b3c4d.txt",
+  text: "About me, for this whole chat (zhu-1a2b3c4d)\n\nBelow is my resume. Answer questions about me from it.\n\n=== MY RESUME ===\nAsha Rao, Senior Backend Engineer",
+  note: "My resume is attached (resume-zhu-1a2b3c4d.txt). Use it for this whole chat, as the file says.",
+  question_heading: "=== QUESTION ===",
+};
 
 const INJECT = readFileSync(resolve(__dirname, "../src-tauri/src/webchat_inject.js"), "utf8");
 const flush = () => new Promise((r) => setTimeout(r, 0));
@@ -66,6 +80,21 @@ describe("delivery results", () => {
     expect(describeResult({ done: true, ok: false, reason: "no_message_box" }, "Claude").ok).toBe(false);
     expect(describeResult({ done: true, ok: false, text: "failed", images: 0 }, "X").ok).toBe(false);
   });
+
+  it("says what happened to the resume", () => {
+    const r = (extra: object) => ({ done: true, ok: true, text: "replace" as const, images: 0, ...extra });
+    expect(describeResult(r({ context: "file", context_confirmed: true }), "X").message).toBe("Resume attached; question ready — review and press Send");
+    expect(describeResult(r({ context: "file", context_confirmed: false }), "X").message).toMatch(/^Resume sent to the page \(attachment not confirmed\); question ready/);
+    expect(describeResult(r({ context: "text" }), "X").message).toBe("Resume added to the message; question ready — review and press Send");
+    // A chat under way, or a draft that has it already: only the question is mentioned.
+    expect(describeResult(r({ context: "skipped" }), "X").message).toBe("Question ready — review and press Send");
+    expect(describeResult(r({ context: "already_there" }), "X").message).toBe("Question ready — review and press Send");
+    const failed = describeResult({ done: true, ok: false, text: "failed", images: 0, context: "failed" }, "X");
+    expect(failed).toEqual({ ok: false, message: "The resume could not be added; the question could not be inserted" });
+    // "Add resume" alone: there is no question to talk about.
+    expect(describeResult(r({ context: "file", context_confirmed: true }), "X", false).message).toBe("Resume attached — review and press Send");
+    expect(describeResult(r({ text: "already_there", context: "already_there" }), "X", false).message).toBe("The resume is already in this draft — review and press Send");
+  });
 });
 
 describe("custom model endpoints", () => {
@@ -91,6 +120,7 @@ describe("automatic delivery", () => {
     deliver.mockClear();
     open.mockClear();
     usePrefs.setState({ webChatTabs: tabs, webChatActive: tabs[1].id, webChatAutoQuestions: true, webChatAutoScreenshots: true, webChatTarget: "all", instructions: "" });
+    chatContext = null;
     useWebChat.setState({ tabs: {}, onScreen: null });
     listen("listening");
   });
@@ -100,7 +130,7 @@ describe("automatic delivery", () => {
     await flush();
     await flush();
     expect(deliver.mock.calls.map((c) => c[0])).toEqual(["chatgpt-00000001", "claude-00000002"]);
-    expect(deliver.mock.calls[0][1]).toEqual({ service: "chatgpt", text: "What is a mutex?", images: [], force: false });
+    expect(deliver.mock.calls[0][1]).toEqual({ service: "chatgpt", text: "What is a mutex?", images: [], force: false, context: null });
     expect(useWebChat.getState().tabs["chatgpt-00000001"].unread).toBe(true);
     onQuestionEvent(question("q1", "What is a mutex?"), false); // replayed event
     await flush();
@@ -141,7 +171,22 @@ describe("automatic delivery", () => {
     await flush();
     await flush();
     expect(deliver.mock.calls).toHaveLength(1);
-    expect(deliver.mock.calls[0]).toEqual(["claude-00000002", { service: "claude", text: "Answer briefly.\n\nWhat is CAP?", images: [], force: false }]);
+    expect(deliver.mock.calls[0]).toEqual(["claude-00000002", { service: "claude", text: "Answer briefly.\n\nWhat is CAP?", images: [], force: false, context: null }]);
+  });
+
+  it("offers the resume with every question, for the page to add in a new chat", async () => {
+    chatContext = CTX;
+    onQuestionEvent(question("q9", "Tell me about yourself."), false);
+    await vi.waitFor(() => expect(deliver).toHaveBeenCalledTimes(2));
+    const sent = deliver.mock.calls.map((c) => c[1] as { text: string; context: Record<string, unknown> });
+    expect(sent[0].text).toBe("Tell me about yourself."); // the page composes the message, not the window
+    expect(sent[0].context).toEqual({ ...CTX, mode: "file", force: false, home: "/" });
+    expect(sent[1].context).toMatchObject({ mode: "file", force: false, home: "/new" }); // Claude's new chat is /new
+
+    // Always as a file (no setting any more): the page helper puts it in the message where a site takes no files.
+    deliver.mockClear();
+    await sendQuestionToChats(question("q10", "Why this company?"));
+    expect(deliver.mock.calls.every((c) => (c[1] as { context: { mode: string } }).context.mode === "file")).toBe(true);
   });
 });
 
@@ -222,5 +267,168 @@ describe("page helper", () => {
     run(z, "A question");
     expect(clicks).toBe(0);
     expect(INJECT).not.toMatch(/\.click\(|\.submit\(|requestSubmit|key(down|press|up)/i);
+  });
+});
+
+// ------------------------------------------------------------------ the page helper and the resume
+describe("page helper: the resume in a new chat", () => {
+  type Step = { done: boolean; ok?: boolean; text?: string; context?: string | null; context_method?: string | null; context_confirmed?: boolean; inserted?: string };
+  type Helper = { begin: (m: object) => boolean; step: (job: number) => Step };
+  let job = 1000;
+
+  // jsdom has no clipboard or drag events and no DataTransfer: plain stand-ins, as a browser shapes them.
+  class FakeDataTransfer {
+    files: File[] = [];
+    items = { add: (f: File) => this.files.push(f) };
+    private data: Record<string, string> = {};
+    setData(t: string, v: string) {
+      this.data[t] = v;
+    }
+    getData(t: string) {
+      return this.data[t] ?? "";
+    }
+  }
+  class FakeClipboardEvent extends Event {
+    clipboardData: FakeDataTransfer | null;
+    constructor(type: string, init: EventInit & { clipboardData?: FakeDataTransfer }) {
+      super(type, init);
+      this.clipboardData = init.clipboardData ?? null;
+    }
+  }
+  class FakeDragEvent extends Event {
+    dataTransfer: FakeDataTransfer | null;
+    constructor(type: string, init: EventInit & { dataTransfer?: FakeDataTransfer }) {
+      super(type, init);
+      this.dataTransfer = init.dataTransfer ?? null;
+    }
+  }
+  Object.assign(globalThis, { DataTransfer: FakeDataTransfer, ClipboardEvent: FakeClipboardEvent, DragEvent: FakeDragEvent });
+
+  const at = (path: string) => window.history.replaceState(null, "", path);
+
+  function load(html: string): Helper {
+    document.body.innerHTML = html;
+    delete (window as unknown as { __zhu?: unknown }).__zhu;
+    Element.prototype.getBoundingClientRect = () => ({ x: 0, y: 600, left: 0, top: 600, right: 600, bottom: 640, width: 600, height: 40, toJSON: () => ({}) });
+    new Function(INJECT)();
+    return (window as unknown as { __zhu: Helper }).__zhu;
+  }
+
+  function run(z: Helper, text: string, context: object | null, previous = ""): Step {
+    job += 1;
+    z.begin({ job, service: "custom", text, previous, force: false, images: [], context });
+    let s: Step = { done: false };
+    for (let i = 0; i < 40 && !s.done; i++) s = z.step(job);
+    return s;
+  }
+
+  const ctx = (mode: "file" | "text", force = false) => ({ ...CTX, mode, force, home: "/" });
+  const asText = (q: string) => `${CTX.text}\n\n${CTX.question_heading}\n${q}`;
+
+  /** A site whose file picker takes text files, and shows a chip with the name once one is chosen. */
+  function siteWithPicker(): { z: Helper; box: HTMLTextAreaElement; picked: File[] } {
+    const z = load('<textarea id="box"></textarea><input id="pick" type="file" accept="image/*,.pdf,.txt" />');
+    const picked: File[] = [];
+    const input = document.getElementById("pick") as HTMLInputElement;
+    Object.defineProperty(input, "files", { set: (v: File[]) => picked.push(...v), get: () => picked });
+    input.addEventListener("change", () => {
+      const chip = document.createElement("div");
+      chip.className = "attachment";
+      chip.textContent = picked[picked.length - 1].name;
+      document.body.appendChild(chip);
+    });
+    return { z, box: document.getElementById("box") as HTMLTextAreaElement, picked };
+  }
+
+  it("goes in the message above the first question of a new chat, and stays out of the chat once it is there", () => {
+    at("/");
+    const z = load('<main id="chat"></main><textarea id="box"></textarea>');
+    const box = document.getElementById("box") as HTMLTextAreaElement;
+    const first = run(z, "Tell me about yourself.", ctx("text"));
+    expect(first).toMatchObject({ ok: true, text: "replace", context: "text", inserted: asText("Tell me about yourself.") });
+    expect(box.value).toBe(asText("Tell me about yourself."));
+
+    // Not sent yet: the next question replaces ZHU's draft, and the resume stays in it.
+    expect(run(z, "What was your biggest project?", ctx("text"))).toMatchObject({ text: "replace", context: "already_there" });
+    expect(box.value).toBe(asText("What was your biggest project?"));
+
+    // Sent: the site moves to the conversation's address and shows the message.
+    box.value = "";
+    at("/c/7f3a");
+    document.getElementById("chat")!.textContent = asText("What was your biggest project?");
+    expect(run(z, "Why are you leaving?", ctx("text"))).toMatchObject({ text: "replace", context: "skipped" });
+    expect(box.value).toBe("Why are you leaving?");
+
+    // A new chat on the same page gets it again.
+    box.value = "";
+    at("/");
+    document.getElementById("chat")!.textContent = "";
+    expect(run(z, "What is a mutex?", ctx("text")).context).toBe("text");
+  });
+
+  it("is attached as a text file with a one-line note, through the page's own file picker", async () => {
+    at("/");
+    const { z, box, picked } = siteWithPicker();
+    const s = run(z, "Tell me about yourself.", ctx("file"));
+    expect(s).toMatchObject({ ok: true, context: "file", context_method: "file-input", context_confirmed: true });
+    expect(box.value).toBe(`${CTX.note}\n\nTell me about yourself.`);
+    expect(picked.map((f) => [f.name, f.type])).toEqual([["resume-zhu-1a2b3c4d.txt", "text/plain"]]);
+    const read = await new Promise<string>((done) => {
+      const reader = new FileReader();
+      reader.onload = () => done(String(reader.result));
+      reader.readAsText(picked[0]);
+    });
+    expect(read).toBe(CTX.text);
+
+    // The next question in the same unsent draft: the note stays, no second file.
+    expect(run(z, "Why this company?", ctx("file"))).toMatchObject({ context: "already_there", text: "replace" });
+    expect(box.value).toBe(`${CTX.note}\n\nWhy this company?`);
+    expect(picked).toHaveLength(1);
+  });
+
+  it("goes in the message where a site takes no files", () => {
+    at("/");
+    const z = load('<textarea id="box"></textarea>');
+    const s = run(z, "Tell me about yourself.", ctx("file"));
+    expect(s).toMatchObject({ ok: true, context: "text", context_method: "none" });
+    expect((document.getElementById("box") as HTMLTextAreaElement).value).toBe(asText("Tell me about yourself."));
+  });
+
+  it("is left out of a chat under way, unless the user asks for it", () => {
+    at("/c/91b2");
+    const { z, box, picked } = siteWithPicker();
+    expect(run(z, "What is CAP?", ctx("file"))).toMatchObject({ context: "skipped", text: "replace" });
+    expect(box.value).toBe("What is CAP?");
+    expect(picked).toHaveLength(0);
+
+    // "Add resume": into this chat, with the note only (there is no question).
+    box.value = "";
+    expect(run(z, "", ctx("file", true))).toMatchObject({ ok: true, context: "file" });
+    expect(box.value).toBe(CTX.note);
+    expect(picked).toHaveLength(1);
+  });
+
+  it("is not added again where the page already shows it, or with another site's address", () => {
+    at("/");
+    const z = load(`<div class="message">${CTX.text}</div><textarea id="box"></textarea>`); // a site that stays at "/"
+    expect(run(z, "Next question?", ctx("text")).context).toBe("skipped");
+    const zz = load('<div aria-label="resume-zhu-1a2b3c4d.txt"></div><textarea id="box"></textarea>'); // a chip that names it in a label only
+    expect(run(zz, "Next question?", ctx("file")).context).toBe("skipped");
+    // A new chat of a site ZHU knows: Claude's /new.
+    at("/new");
+    const zc = load('<textarea id="box"></textarea>');
+    job += 1;
+    zc.begin({ job, service: "claude", text: "Q?", force: false, images: [], context: ctx("text") });
+    let s: Step = { done: false };
+    for (let i = 0; i < 40 && !s.done; i++) s = zc.step(job);
+    expect(s.context).toBe("text");
+    at("/");
+  });
+
+  it("does not change a question when no resume is offered", () => {
+    at("/");
+    const z = load('<textarea id="box"></textarea>');
+    expect(run(z, "Plain question?", null)).toMatchObject({ text: "replace", context: null });
+    expect((document.getElementById("box") as HTMLTextAreaElement).value).toBe("Plain question?");
   });
 });

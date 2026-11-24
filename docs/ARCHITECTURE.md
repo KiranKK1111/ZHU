@@ -74,7 +74,7 @@ Node 18 constrains front-end tooling: Vite 6 and Tailwind CSS 3.4 are used, beca
 * `zhu-engine.exe` is still installed: the installer runs it once to unpack the NVIDIA libraries (§3, INSTALLATION.md), and the build smoke-tests it. The app never starts it.
 
 * The engine is the **single source of truth** for session, transcript, question, screenshot, and provider state. The main window subscribes to its WebSocket stream and replays missed events after a reconnect, so it cannot drift from the engine.
-* UI-only preferences (theme, sidebar state, window opacity) live in the front-end preference store. They are broadcast between windows with Tauri events.
+* UI-only preferences (theme, window opacity, the questions column's layout, the chat tabs) live in the front-end preference store. They are broadcast between windows with Tauri events.
 
 ### Local IPC hardening
 
@@ -89,10 +89,10 @@ Node 18 constrains front-end tooling: Vite 6 and Tailwind CSS 3.4 are used, beca
 ```text
 ZHU/
 ├── apps/desktop/                  Tauri 2 + React desktop application
-│   ├── src/                       React front end (one bundle, three window roots)
-│   │   ├── app/                   window roots, routing, state stores, providers
-│   │   ├── components/            primitives · layout · transcription · questions · capture · composer · setup
-│   │   ├── features/              the four screens (home, webchat, history, settings)
+│   ├── src/                       React front end (one bundle, two window roots: main, floating icon)
+│   │   ├── app/                   window roots, routing (the chats and Settings), state stores, providers
+│   │   ├── components/            primitives · layout · transcription · questions · capture · setup
+│   │   ├── features/              webchat (the main screen: questions beside the chat tabs) · chat (Custom chat) · settings · sidepanel
 │   │   ├── hooks/ services/ styles/ types/ utils/
 │   └── src-tauri/                 Rust shell (windows, tray, hotkeys, the in-process engine, web chat tabs + page helper)
 ├── engine/                        Python processing engine

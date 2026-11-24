@@ -2,11 +2,8 @@ import { useQuery } from "@tanstack/react-query";
 import { Check, Copy, GripVertical, ImagePlus, Images, Monitor, Trash2, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { qk } from "@/app/providers/queryKeys";
-import { usePrefs } from "@/app/state/prefs";
-import { useSession } from "@/app/state/session";
 import { Thumb } from "@/components/capture/Thumb";
 import { Button, IconButton } from "@/components/primitives/Button";
-import { Segmented } from "@/components/primitives/Controls";
 import { ConfirmDialog, Modal } from "@/components/primitives/Dialog";
 import { Skeleton } from "@/components/primitives/Display";
 import { useCaptureActions } from "@/hooks/useActions";
@@ -22,11 +19,7 @@ import { formatBytes, formatDateTime, formatRelative } from "@/utils/format";
  * a message box or with its + button; nothing reaches a model until Send is pressed there.
  */
 export function ScreenshotsSection() {
-  const sessionId = useSession((s) => s.currentSessionId);
-  const scopePref = usePrefs((p) => p.sidePanelScope);
-  const setPrefs = usePrefs((p) => p.set);
-  const scope = scopePref === "session" && sessionId ? "session" : "all";
-  const shots = useQuery({ queryKey: qk.screenshots(scope === "session" ? sessionId : null), queryFn: () => api.screenshots(scope === "session" ? sessionId : null) });
+  const shots = useQuery({ queryKey: qk.screenshots(null), queryFn: () => api.screenshots(null) });
   const capture = useCaptureActions();
   const draggingIds = useScreenshotDrag((s) => s.ids);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -54,7 +47,7 @@ export function ScreenshotsSection() {
   const previewed = list.find((s) => s.id === preview) ?? null;
 
   return (
-    <section aria-label="Screenshots" className="flex min-h-0 flex-1 flex-col">
+    <section aria-label="Screenshots" className="flex min-h-[17.5rem] flex-1 flex-col">
       <div className="flex shrink-0 items-center gap-1 px-3 pb-2 pt-3">
         <h2 className="flex-1 text-card text-fg">
           Screenshots
@@ -63,22 +56,10 @@ export function ScreenshotsSection() {
         <IconButton label="Capture the whole screen" shortcut="Ctrl+Shift+A" size="sm" onClick={() => void capture.screen("monitor")}>
           <Monitor className="h-4 w-4" />
         </IconButton>
+        <IconButton label="Delete all screenshots" size="sm" variant="danger" disabled={!list.length} onClick={() => setDeleting(list.map((s) => s.id))}>
+          <Trash2 className="h-4 w-4" />
+        </IconButton>
       </div>
-
-      {sessionId ? (
-        <div className="shrink-0 px-3 pb-2">
-          <Segmented
-            label="Which screenshots to show"
-            size="sm"
-            value={scope}
-            onValueChange={(v) => setPrefs({ sidePanelScope: v })}
-            options={[
-              { value: "all", label: "All" },
-              { value: "session", label: "This session" },
-            ]}
-          />
-        </div>
-      ) : null}
 
       {selection.length ? (
         <div className="mx-3 mb-2 flex shrink-0 items-center gap-1 rounded-lg border border-border bg-surface-2 py-1 pl-3 pr-1">
@@ -102,16 +83,17 @@ export function ScreenshotsSection() {
         </div>
       ) : null}
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-3 pb-3">
         {shots.isLoading ? (
           <div className="grid grid-cols-2 gap-2">
             <Skeleton className="aspect-[16/10] w-full" />
             <Skeleton className="aspect-[16/10] w-full" />
           </div>
         ) : list.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-border px-4 py-8 text-center">
+          // The whole area below the heading, so the box is always seen whole.
+          <div className="flex min-h-[9rem] flex-1 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border px-4 py-5 text-center">
             <Images className="h-5 w-5 text-fg-3" aria-hidden />
-            <p className="text-secondary text-fg-2">{scope === "session" ? "No screenshots in this session yet." : "No screenshots yet."}</p>
+            <p className="text-secondary text-fg-2">No screenshots yet.</p>
             <p className="text-caption text-fg-3">Capture the screen with the button above or Ctrl+Shift+A. Then drag it into a chat.</p>
           </div>
         ) : (
@@ -175,7 +157,7 @@ export function ScreenshotsSection() {
       <ConfirmDialog
         open={!!deleting}
         onOpenChange={(o) => !o && setDeleting(null)}
-        title={deleting && deleting.length > 1 ? `Delete ${deleting.length} screenshots?` : "Delete this screenshot?"}
+        title={deleting && deleting.length > 1 ? (deleting.length === list.length ? `Delete all ${deleting.length} screenshots?` : `Delete ${deleting.length} screenshots?`) : "Delete this screenshot?"}
         description="The image is removed from this computer and from any message box it is waiting in. Messages already sent keep their text."
         confirmLabel="Delete"
         destructive

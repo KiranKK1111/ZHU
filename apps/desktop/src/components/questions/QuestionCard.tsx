@@ -1,4 +1,4 @@
-import { Copy, MessagesSquare, MoreHorizontal, Pencil, Sparkles, Trash2 } from "lucide-react";
+import { Copy, MessagesSquare, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { memo, useState } from "react";
 import { usePrefs } from "@/app/state/prefs";
 import { Button, IconButton } from "@/components/primitives/Button";
@@ -16,8 +16,8 @@ export interface QuestionCardProps {
 }
 
 /**
- * One detected question: the text, and the three things you do with it (get an answer, copy it,
- * send it to the chat tabs).
+ * One detected question: the text, and what you do with it: send it to the chat tabs (with none
+ * open, a Custom chat tab opens for it), copy it, correct its wording or set it aside.
  */
 export const QuestionCard = memo(function QuestionCard({ question: q }: QuestionCardProps) {
   const actions = useQuestionActions();
@@ -82,17 +82,19 @@ export const QuestionCard = memo(function QuestionCard({ question: q }: Question
 
       {!editing ? (
         <footer className="mt-3 flex items-center gap-1">
-          <Button size="sm" variant="subtle" icon={<Sparkles className="h-3.5 w-3.5" />} disabled={discarded} onClick={() => actions.answer(q)}>
-            Answer
+          <Button
+            size="sm"
+            variant="subtle"
+            icon={<MessagesSquare className="h-3.5 w-3.5" />}
+            disabled={discarded}
+            title={hasChatTabs ? "Send to chat tabs" : "Open a Custom chat with this question"}
+            onClick={() => actions.sendToChats(q)}
+          >
+            Send to chat
           </Button>
           <IconButton label="Copy question" size="sm" onClick={() => void actions.copy(q)}>
             <Copy className="h-3.5 w-3.5" />
           </IconButton>
-          {hasChatTabs ? (
-            <IconButton label="Send to chat tabs" size="sm" disabled={discarded} onClick={() => actions.sendToChats(q)}>
-              <MessagesSquare className="h-3.5 w-3.5" />
-            </IconButton>
-          ) : null}
           <div className="ml-auto opacity-0 transition-opacity duration-fast focus-within:opacity-100 group-hover:opacity-100">
               <Menu>
                 <MenuTrigger asChild>

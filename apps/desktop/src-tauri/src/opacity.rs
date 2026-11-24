@@ -37,7 +37,8 @@ pub fn set(app: &AppHandle, opacity: f64) {
     let handle = app.clone();
     let _ = app.run_on_main_thread(move || {
         for label in LABELS {
-            if let Some(window) = handle.get_webview_window(label) {
+            // As windows: see crate::main_window.
+            if let Some(window) = handle.get_window(label) {
                 imp::apply(&window);
             }
         }
@@ -48,7 +49,7 @@ pub fn set(app: &AppHandle, opacity: f64) {
 /// icon) takes the current opacity from the start.
 pub fn install(window: &WebviewWindow) {
     imp::install(window);
-    imp::apply(window);
+    imp::apply(&window.as_ref().window());
 }
 
 #[cfg(windows)]
@@ -84,7 +85,7 @@ mod imp {
         }
     }
 
-    pub fn apply(window: &WebviewWindow) {
+    pub fn apply(window: &tauri::Window) {
         let Ok(hwnd) = window.hwnd() else { return };
         let alpha = ALPHA.load(Ordering::SeqCst);
         unsafe {
@@ -126,7 +127,7 @@ mod imp {
     use tauri::WebviewWindow;
 
     pub fn install(_window: &WebviewWindow) {}
-    pub fn apply(_window: &WebviewWindow) {}
+    pub fn apply(_window: &tauri::Window) {}
 }
 
 #[cfg(test)]

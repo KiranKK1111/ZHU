@@ -12,7 +12,7 @@ interface NavStore {
 }
 
 export const useNav = create<NavStore>((set) => ({
-  route: "home",
+  route: "webchats",
   setupOpen: false,
   navigate: (route) => set({ route }),
   setSetupOpen: (setupOpen) => set({ setupOpen }),

@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { AppWindow, Database, FileText, Keyboard, MessageSquareText, MessagesSquare, Mic, RotateCcw, Sparkles, Trash2, type LucideIcon } from "lucide-react";
+import { AppWindow, Briefcase, Database, FileText, Keyboard, MessageSquareText, MessagesSquare, Mic, RotateCcw, Sparkles, Trash2, type LucideIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { qk } from "@/app/providers/queryKeys";
 import { usePrefs } from "@/app/state/prefs";
@@ -27,7 +27,7 @@ import { useEngineSettings } from "./useEngineSettings";
 const SECTIONS: { id: string; label: string; icon: LucideIcon; description: string }[] = [
   { id: "answers", label: "Answers", icon: Sparkles, description: "Which AI models answer, and how the answers should read." },
   { id: "listening", label: "Listening", icon: Mic, description: "What ZHU listens to. Recording starts only when you press Start listening." },
-  { id: "chats", label: "Chat tabs", icon: MessagesSquare, description: "How detected questions and screenshots reach the tabs under AI chats." },
+  { id: "chats", label: "Chat tabs", icon: MessagesSquare, description: "How detected questions and screenshots reach the chat tabs." },
   { id: "app", label: "App", icon: AppWindow, description: "Appearance, startup and keyboard shortcuts." },
   { id: "data", label: "Your data", icon: Database, description: "Everything is stored on this computer." },
 ];
@@ -56,6 +56,17 @@ export default function SettingsScreen() {
     setCurrent(atEnd ? SECTIONS[SECTIONS.length - 1].id : found);
   }, []);
   useEffect(track, [track]);
+
+  // Esc goes back to the chats, as the gear in the title bar does (not while a dialog here is open:
+  // Esc closes that first).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || e.defaultPrevented || document.querySelector('[role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"]')) return;
+      useNav.getState().navigate("webchats");
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   const jump = (id: string) => scroller.current?.querySelector(`#settings-${id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
 
@@ -163,8 +174,9 @@ function Row({ title, description, control, stacked }: { title: string; descript
 // ------------------------------------------------------------------ answers
 function Answers({ onManageModels }: { onManageModels: () => void }) {
   const providers = useProviders();
-  const resume = useQuery({ queryKey: qk.resume, queryFn: api.resume, staleTime: 60_000 });
-  const autoAnswer = usePrefs((p) => p.autoAnswer);
+  const resumes = useQuery({ queryKey: qk.resume, queryFn: api.resumes, staleTime: 60_000 });
+  const active = resumes.data?.items.find((r) => r.id === resumes.data?.active_id) ?? null;
+  const job = resumes.data?.job ?? null;
   const sidePanel = usePrefs((p) => p.sidePanelOpen);
   const set = usePrefs((p) => p.set);
   const connected = (providers.data ?? []).filter((p) => p.status === "ready");
@@ -191,29 +203,36 @@ function Answers({ onManageModels }: { onManageModels: () => void }) {
           </Button>
         }
       />
-      <Row
-        title="Answer questions automatically"
-        description="Each question that is detected while listening is asked right away. Off: you press Answer."
-        control={<Switch checked={autoAnswer} label="Answer detected questions automatically" onCheckedChange={(v) => set({ autoAnswer: v })} />}
-      />
       <Row title="How answers should sound" description="Optional. One or two sentences that go with every question, for AI models and for chat websites." stacked control={<Instructions />} />
       <Row
-        title="Your résumé"
+        title="Your resume and the job"
         description={
-          resume.data ? (
-            <span className="flex flex-wrap items-center gap-1.5">
-              <Badge tone={resume.data.enabled ? "success" : "neutral"} icon={<FileText className="h-3 w-3" />}>
-                {resume.data.enabled ? "Used in answers" : "Switched off"}
-              </Badge>
-              <span className="min-w-0 truncate">{resume.data.file_name}</span>
+          active || job ? (
+            <span className="flex flex-col gap-1">
+              {active ? (
+                <span className="flex min-w-0 items-center gap-1.5">
+                  <Badge tone={resumes.data?.enabled ? "success" : "neutral"} icon={<FileText className="h-3 w-3" />}>
+                    {resumes.data?.enabled ? "Used in answers" : "Switched off"}
+                  </Badge>
+                  <span className="min-w-0 truncate">{active.label}</span>
+                </span>
+              ) : null}
+              {job ? (
+                <span className="flex min-w-0 items-center gap-1.5">
+                  <Badge tone={job.enabled ? "success" : "neutral"} icon={<Briefcase className="h-3 w-3" />}>
+                    {job.enabled ? "Job used" : "Job switched off"}
+                  </Badge>
+                  <span className="min-w-0 truncate">{job.title || "Job description"}</span>
+                </span>
+              ) : null}
             </span>
           ) : (
-            "Upload it once and questions about you (your experience, projects, strengths) are answered from it."
+            "Upload your resume once and questions about you (your experience, projects, strengths) are answered from it. Add the job you are applying for, and answers connect the two."
           )
         }
         control={
-          <Button variant="secondary" disabled={sidePanel} title={sidePanel ? "The panel on the right is open: the résumé is at its bottom" : undefined} onClick={() => set({ sidePanelOpen: true })}>
-            {sidePanel ? "In the panel on the right" : resume.data ? "Open the panel" : "Upload in the panel"}
+          <Button variant="secondary" disabled={sidePanel} title={sidePanel ? "The panel on the right is open: the resume is at its bottom" : undefined} onClick={() => set({ sidePanelOpen: true })}>
+            {sidePanel ? "In the panel on the right" : active || job ? "Open the panel" : "Upload in the panel"}
           </Button>
         }
       />
@@ -369,9 +388,9 @@ function General({ onEditShortcuts }: { onEditShortcuts: () => void }) {
         }
       />
       <Row
-        title="Screenshots and résumé panel"
+        title="Screenshots and resume panel"
         description="The panel on the right of every screen. The button in the title bar shows and hides it too."
-        control={<Switch checked={sidePanel} label="Show the screenshots and résumé panel" onCheckedChange={(v) => set({ sidePanelOpen: v })} />}
+        control={<Switch checked={sidePanel} label="Show the screenshots and resume panel" onCheckedChange={(v) => set({ sidePanelOpen: v })} />}
       />
       <Row
         title="Keyboard shortcuts"
@@ -540,7 +559,7 @@ function Data() {
         />
         <Row
           title="Delete everything"
-          description="All sessions, transcripts, questions, screenshots, answers, chats and your résumé. Keys and speech models stay."
+          description="All sessions, transcripts, questions, screenshots, answers, chats and your resume. Keys and speech models stay."
           control={
             <Button variant="danger" icon={<Trash2 className="h-4 w-4" />} onClick={() => setPurging(true)}>
               Delete

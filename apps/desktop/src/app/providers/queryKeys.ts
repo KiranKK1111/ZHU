@@ -12,7 +12,6 @@ export const qk = {
   providers: ["providers"] as const,
   chats: ["chats"] as const,
   resume: ["resume"] as const,
-  interactions: (sessionId: string) => ["interactions", sessionId] as const,
   models: ["models"] as const,
   settings: ["settings"] as const,
   vocabulary: ["vocabulary"] as const,

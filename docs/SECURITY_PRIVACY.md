@@ -5,9 +5,9 @@
 | Data | Where | Leaves the machine? |
 |---|---|---|
 | Audio | Memory only, in bounded queues. Audio is never written to disk | Never |
-| Transcripts, questions, notes | `%LOCALAPPDATA%\app.zhu.desktop\data\zhu.db` (SQLite, WAL) | When you send a prompt to a provider, when you export, and, **if you have AI chat tabs open**, each detected question goes into those sites' message boxes |
-| Screenshots | `%LOCALAPPDATA%\app.zhu.desktop\data\screenshots\` | The images you attach to a provider prompt, and, **if you have AI chat tabs open**, each new capture is attached to the drafts there |
-| Your résumé | Only its text, in the database (`settings` table). The uploaded file is not kept | While it is switched on, the text goes to the AI model with every question you ask or that is asked automatically. It is not put into chat-website drafts. Removed by its bin button and by **Delete everything** |
+| Transcripts, questions, notes | `%LOCALAPPDATA%\app.zhu.desktop\data\zhu.db` (SQLite, WAL) | When you send a message to a provider, and, **if you have chat website tabs open**, each detected question goes into those sites' message boxes |
+| Screenshots | `%LOCALAPPDATA%\app.zhu.desktop\data\screenshots\` | The images you attach to a message to a provider, and, **if you have chat website tabs open**, each new capture is attached to the drafts there |
+| Your resume and the job | Their text, in the database (`settings` table), and the resume file as you uploaded it, in `%LOCALAPPDATA%\app.zhu.desktop\data\resume\` (one file; replaced by the next upload, deleted with the resume). A scan or photo is read with Windows' own text recognition, on this computer. The job's file is not kept, only its text. The file is shown inside ZHU in a frame of its own page (`frame-src 'self' blob:`: only content the page itself made from the file it fetched), or opened in its own program (Word) at your request | Once, right after the upload, the whole text goes to the Custom chat's model (or the first connected one) to be condensed into a short profile, which is kept with it. While switched on, that profile (or the text, until there is one) and the job go to the AI model with every Custom chat message you send, and the whole text into the draft of the first question of each new chat on a chat website (the site sees a draft before you press Send). The switch on the card stops both. Removed with **Remove** (in the resume's preview, in the job) and by **Delete everything** |
 | API keys | Windows Credential Manager (`ZHU / provider:<id>`) | Only to that provider's API endpoint (for a custom model: the endpoint URL you entered) |
 | Chat-site sign-ins (cookies, site data) | `%LOCALAPPDATA%\app.zhu.desktop\webchat` (a separate WebView2 profile) | Used by the chat sites themselves, as in a browser. ZHU does not read them. Cleared by **Sign out of all chat sites** |
 | Speech models | `%LOCALAPPDATA%\app.zhu.desktop\data\models\` | One-time download from Hugging Face; no data is uploaded. Parakeet uses a community ONNX export of NVIDIA's model (`istupakov/parakeet-tdt-0.6b-v2-onnx` / `-v3-onnx`, CC-BY-4.0), pinned to the tested commit. ONNX files are model graphs and weights that ONNX Runtime interprets; they contain no executable code |
@@ -15,14 +15,14 @@
 
 * Transcription and question detection run **locally** (GPU or CPU). Audio is never uploaded.
 * There is **no telemetry**. FastAPI's OpenTelemetry layer has no exporter, and `OTEL_SDK_DISABLED`, `FASTAPI_OTEL_AUTO_CONFIGURE=false`, and `HF_HUB_DISABLE_TELEMETRY=1` are set at engine start.
-* An AI model you connected receives a question when you press **Answer** or **Send**. With **Auto-answer** switched on (it is off by default), every question detected while listening is sent to the selected model without a click. A screenshot goes to a model only when it is attached in the ask box and you send.
+* An AI model you connected receives a question only when you press **Send** in the Custom chat. **Send to chat** on a question card, and automatic delivery while listening, only put the question into the message box. A screenshot goes to a model only when it is attached to a Custom chat message and you press Send.
 * **Custom chat** (ZHU's own chat) sends a message, with the earlier turns of that conversation, to the provider of the selected model when you press Send. Conversations are stored in the local database. Two built-in providers (Kilo Gateway, Pollinations) answer without a key; they are contacted only after you press **Start without a key** or connect them, and their free models may log prompts. See CHAT.md.
-* **AI chat tabs change this for the sites you open.** With a chat tab open, ZHU places detected questions in the site's message box and attaches captured screenshots to the draft. A site can read its message box before you press Send, and most sites upload an attachment when it is added. Both deliveries can be switched off, and nothing is delivered when no chat tab is open. ZHU never presses Send and never signs in. See WEB_CHATS.md.
+* **Chat website tabs change this for the sites you open.** With a chat website open in a tab, ZHU places detected questions in the site's message box and attaches captured screenshots to the draft. A site can read its message box before you press Send, and most sites upload an attachment when it is added. Both deliveries can be switched off, and nothing is delivered when no chat tab is open. ZHU never presses Send and never signs in. See WEB_CHATS.md.
 
 ## 2. Recording controls and consent
 
-* Audio capture starts only when you press **Start listening** in the title bar (or use the tray menu or the hotkey you configured). It stops when you pause, stop, end the session, or quit; the engine runs inside ZHU's process, so it cannot outlive it.
-* While listening, the recording state is shown in text, not only by color: "● Live" or "Paused", with the time, in the title bar on every screen, next to Pause and Stop. When nothing is recorded the title bar offers **Start listening** instead. The tray tooltip says "Recording", "Recording paused" or "Not recording". The status is also announced through `aria-live`.
+* Audio capture starts only when you press **Start listening** in the title bar (or use the tray menu or the hotkey you configured). It stops when you pause, stop, or quit; the engine runs inside ZHU's process, so it cannot outlive it.
+* While listening, the recording state is shown in text, not only by color: "● Live" or "Paused", with the time, in the title bar (also while Settings is open), next to Pause and Stop. When nothing is recorded the title bar offers **Start listening** instead. The tray tooltip says "Recording", "Recording paused" or "Not recording". The status is also announced through `aria-live`.
 * You are responsible for obtaining the consent that applicable law and meeting rules require before you transcribe other participants. ZHU is intended for mock interviews, preparation, and meetings where transcription or assistance is permitted.
 
 ## 3. Local IPC hardening
@@ -42,12 +42,13 @@ The webview's Tauri capability set is minimal: window controls, events, writing 
 
 ### Embedded chat websites
 
-AI chat tabs show third-party websites inside the main window. They are isolated from ZHU:
+Chat website tabs show third-party websites inside the main window. They are isolated from ZHU:
 
 | Threat | Mitigation |
 |---|---|
 | A chat page calls ZHU's commands (for example `engine_info`, which returns the engine token) | Tauri rejects IPC from non-local origins unless a capability names the origin; none does. The capability lists ZHU's webviews by label, so `chat-*` webviews never match. Verified in the running app: every command tried from a chat page was rejected |
 | A chat page loads ZHU's own UI (which has IPC access) inside the tab | Chat tabs may navigate only to `https:` pages outside `*.localhost` |
+| A chat page opens windows | A sign-in window (one the page gives a size or position, or an https sign-in page) opens as WebView2's own pop-up in the chat profile, without IPC. Any other https link meant for a new tab opens in the default browser, at most one a second. Every other scheme, ZHU's own UI, and blank windows without a size are refused |
 | A chat page reads ZHU's data or the other profile | Separate WebView2 user-data folder; ordinary browser origin isolation; the local engine requires the token and rejects foreign origins |
 | ZHU types a question into a credential field | Sign-in pages are detected (path, host, password field) and never written to; single-line inputs are used only through a site-specific hint |
 | Script injection through question text or image data | Passed as JSON string literals; image data must match the base64 alphabet |
@@ -58,7 +59,7 @@ AI chat tabs show third-party websites inside the main window. They are isolated
 ZHU can leave its own windows out of screen captures with the documented Windows capture-exclusion API (`SetWindowDisplayAffinity(WDA_EXCLUDEFROMCAPTURE)`). Windows keeps drawing the windows on your display and omits them from what a screenshot, a recording or a screen share receives. It is used in two cases:
 
 * **While ZHU is hidden** (the eye button, next section): for as long as the switch is on.
-* **While ZHU takes a screenshot itself** (the screen button, or Ctrl+Shift+A): for about a fifth of a second, so the picture shows what you are working on and not ZHU. A timer ends it after 4 seconds in any case. The capture is silent: no notice appears, and the screenshot shows up in the panel on the right. If ZHU is not hidden, anyone watching a screen share could see it blink out for that moment.
+* **While ZHU takes a screenshot itself** (the capture button in the screenshots panel, or Ctrl+Shift+A): for about a fifth of a second, so the picture shows what you are working on and not ZHU. A timer ends it after 4 seconds in any case. The capture is silent: no notice appears, and the screenshot shows up in the panel on the right. If ZHU is not hidden, anyone watching a screen share could see it blink out for that moment.
 
 Otherwise ZHU's windows appear in captures like those of any other app.
 
@@ -66,7 +67,7 @@ Limits of capture exclusion:
 
 * It needs Windows 10 version 2004 or later. Older versions show a black rectangle in the capture where the window is.
 * It covers what Windows composes for a capture. It does nothing about a camera or a second person looking at the screen, and remote-control tools that read the display in other ways are not guaranteed to honor it.
-* It covers ZHU's two windows (main with its chat tabs, floating icon). Windows that belong to the system and are opened from ZHU, such as the tray menu and the "Save as" dialog of an export, are not covered.
+* It covers ZHU's two windows (main with its chat tabs, floating icon). Windows that belong to the system and are opened from ZHU, such as the tray menu and the file dialog for uploading a resume, are not covered. Neither is a chat site's sign-in window ("Continue with Google"), which appears in the taskbar and in captures while it is open.
 * The tray icon is removed while ZHU is hidden, and comes back when it is shown again.
 
 ZHU uses no process hiding, and it does not try to evade security tools: ZHU stays in Task Manager (one process, `zhu.exe`, which runs the engine inside it). The floating icon uses `skipTaskbar`, the standard behavior for a floating palette, and it remains an ordinary top-level window of the visible ZHU process.
@@ -95,7 +96,7 @@ The consent rules in §2 apply whether or not ZHU is hidden: other participants 
 
 * Nothing is deleted automatically. (The engine supports a retention period, `privacy.retention_days`; the app no longer has a control for it.)
 * **Keep the full transcript** (Settings → Your data) can be turned off. Questions are then still detected live, but transcript segments are not written to the database.
-* Sessions, individual questions, and screenshots can be deleted from their screens. Deleting a session cascades to its transcript, questions, revisions, relationships, provider interactions, and screenshot files.
+* The questions and the transcript can be cleared with their **Clear** buttons, and screenshots and Custom chat conversations deleted where they are listed. Sessions have no screen of their own: **Delete everything** removes them. Deleting a session through the API (`DELETE /api/sessions/{id}`) cascades to its transcript, questions, revisions, relationships, provider interactions, and screenshot files.
 * **Settings → Your data → Delete everything** (typed confirmation required) removes every session, transcript, question, screenshot, interaction, and Custom chat conversation, and then runs `VACUUM` on the database. Models, API keys, and chat-site sign-ins are kept. Remove those separately (chat sites: **Sign out of all chat sites**).
 
 ## 7. Known limitations

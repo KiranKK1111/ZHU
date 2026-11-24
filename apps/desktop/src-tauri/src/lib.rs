@@ -259,7 +259,7 @@ fn bubble_alive(app: AppHandle) {
 #[tauri::command]
 fn set_minimize_bubble(app: AppHandle, enabled: bool) {
     app.state::<AppState>().minimize_bubble.store(enabled, Ordering::SeqCst);
-    let minimized = app.get_webview_window("main").map(|m| m.is_minimized().unwrap_or(false)).unwrap_or(false);
+    let minimized = main_window(&app).map(|m| m.is_minimized().unwrap_or(false)).unwrap_or(false);
     if !enabled {
         bubble::hide(&app, "switched off in Settings");
     } else if minimized {
@@ -310,9 +310,42 @@ pub(crate) fn shell_log(app: &AppHandle, topic: &str, message: &str) {
     }
 }
 
+/// ZHU's main window. Looked up as a window, never with `get_webview_window`: once a chat tab is
+/// open (webchat.rs adds the website's page to this window), the window holds more than ZHU's own
+/// page and Tauri no longer counts it as a webview window, so that lookup finds nothing. Hiding
+/// ZHU, its opacity, the floating icon and showing it again all did nothing then.
+pub(crate) fn main_window(app: &AppHandle) -> Option<tauri::Window> {
+    app.get_window("main")
+}
+
+/// The main window is never smaller than its minimum (tauri.conf.json). Windows holds a resize by
+/// the edges to it, but the size the window-state plugin restores at start was saved by an earlier
+/// version with a smaller minimum, and is set as it is: it is brought up to the minimum here, though
+/// never past the screen's work area (on a small screen the screen wins).
+fn at_least_minimum_size(app: &AppHandle) {
+    let Some(w) = main_window(app) else { return };
+    let Some(conf) = app.config().app.windows.iter().find(|c| c.label == "main") else { return };
+    let (Some(min_w), Some(min_h)) = (conf.min_width, conf.min_height) else { return };
+    if w.is_maximized().unwrap_or(false) || w.is_fullscreen().unwrap_or(false) {
+        return;
+    }
+    let (Ok(size), Ok(scale)) = (w.inner_size(), w.scale_factor()) else { return };
+    let size = size.to_logical::<f64>(scale);
+    if size.width >= min_w && size.height >= min_h {
+        return;
+    }
+    let (mut width, mut height) = (size.width.max(min_w), size.height.max(min_h));
+    if let Ok(Some(monitor)) = w.current_monitor() {
+        let area = monitor.work_area().size.to_logical::<f64>(monitor.scale_factor());
+        width = width.min(area.width);
+        height = height.min(area.height);
+    }
+    let _ = w.set_size(tauri::LogicalSize::new(width, height));
+}
+
 fn show_main_window(app: &AppHandle) {
     bubble::hide(app, "ZHU was opened");
-    if let Some(w) = app.get_webview_window("main") {
+    if let Some(w) = main_window(app) {
         let _ = w.unminimize();
         let _ = w.show();
         let _ = w.set_focus();
@@ -331,7 +364,7 @@ fn apply_hidden_from_bars(app: &AppHandle, hidden: bool) {
     // A window closed to the tray would have no way back once the tray icon goes (below), so it
     // comes back minimized, where the floating icon stands for it.
     if hidden {
-        if let Some(main) = app.get_webview_window("main") {
+        if let Some(main) = main_window(app) {
             if !main.is_visible().unwrap_or(true) {
                 let _ = main.minimize();
             }
@@ -417,13 +450,12 @@ fn build_tray(app: &AppHandle) -> tauri::Result<()> {
     let show = MenuItem::with_id(app, "show", "Show ZHU", true, None::<&str>)?;
     let hide_bars = MenuItem::with_id(app, "hidden_from_bars", HIDE_FROM_BARS, true, None::<&str>)?;
     let listening = MenuItem::with_id(app, "listening", "Start listening", true, None::<&str>)?;
-    let new_session = MenuItem::with_id(app, "new_session", "New session", true, None::<&str>)?;
     let settings = MenuItem::with_id(app, "settings", "Settings", true, None::<&str>)?;
     let restart_engine = MenuItem::with_id(app, "restart_engine", "Restart the engine", true, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", "Quit ZHU", true, None::<&str>)?;
     let sep1 = PredefinedMenuItem::separator(app)?;
     let sep2 = PredefinedMenuItem::separator(app)?;
-    let menu = Menu::with_items(app, &[&show, &hide_bars, &sep1, &listening, &new_session, &settings, &sep2, &restart_engine, &quit])?;
+    let menu = Menu::with_items(app, &[&show, &hide_bars, &sep1, &listening, &settings, &sep2, &restart_engine, &quit])?;
 
     let tray = TrayIconBuilder::with_id("zhu")
         .icon(app.default_window_icon().cloned().expect("app icon missing"))
@@ -440,10 +472,6 @@ fn build_tray(app: &AppHandle) -> tauri::Result<()> {
                 "hidden_from_bars" => apply_hidden_from_bars(app, !bars::is_hidden()),
                 "listening" => {
                     let _ = app.emit("zhu://tray", Payload { action: "toggle_listening" });
-                }
-                "new_session" => {
-                    show_main_window(app);
-                    let _ = app.emit("zhu://tray", Payload { action: "new_session" });
                 }
                 "settings" => {
                     show_main_window(app);
@@ -571,7 +599,8 @@ pub fn run() {
             }
             // The arrow at the edges of the main window, and the hooks behind the taskbar switch,
             // the opacity control and the frozen pointer (the floating icon gets its hooks when it
-            // is made, in bubble.rs).
+            // is made, in bubble.rs). At start no chat tab is open yet, so the main window is still
+            // a webview window (see `main_window`).
             if let Some(w) = app.get_webview_window("main") {
                 resize_cursor::install(&w);
                 bars::install(&w);
@@ -584,8 +613,9 @@ pub fn run() {
             if start.hidden {
                 bars::hide_at_start(&handle);
             }
+            at_least_minimum_size(&handle);
             if !started_minimized {
-                if let Some(main) = app.get_webview_window("main") {
+                if let Some(main) = main_window(&handle) {
                     let _ = main.show();
                     let _ = main.set_focus();
                 }

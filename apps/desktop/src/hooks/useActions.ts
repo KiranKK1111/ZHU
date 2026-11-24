@@ -8,7 +8,6 @@ import { qk } from "@/app/providers/queryKeys";
 import { latestQuestion, useQuestions } from "@/app/state/questions";
 import { useSession } from "@/app/state/session";
 import { toast, useNav } from "@/app/state/ui";
-import { askQuestion } from "@/services/ask";
 import { api } from "@/services/engine";
 import { copyText, inTauri, shell } from "@/services/shell";
 import type { Question } from "@/types/engine";
@@ -81,25 +80,7 @@ export function useListeningActions() {
     else if (s === "idle" || s === "error") await start();
   }, [pause, resume, start]);
 
-  const newSession = useCallback(
-    async (name?: string) => {
-      try {
-        const st = useSession.getState().listening?.state;
-        if (st === "listening" || st === "paused") await api.stopListening();
-        const s = await api.createSession(name);
-        useSession.getState().setCurrentSession(s.id);
-        void qc.invalidateQueries({ queryKey: qk.sessionsAll });
-        toast.success("Session created", s.name);
-        return s;
-      } catch (err) {
-        toast.error("Could not create session", errorMessage(err));
-        return null;
-      }
-    },
-    [qc],
-  );
-
-  return { start, pause, resume, stop, toggle, newSession, ensureSession };
+  return { start, pause, resume, stop, toggle, ensureSession };
 }
 
 export function useQuestionActions() {
@@ -141,13 +122,10 @@ export function useQuestionActions() {
     }
   }, []);
 
-  /** Ask the connected AI model; the answer streams into the Answers panel on Home. */
-  const answer = useCallback((q: Question) => void askQuestion(q), []);
-
-  /** Put the question into the message boxes of the embedded chat tabs (never submits). */
+  /** Put the question into the message boxes of the chat tabs (never submits); with none open, a Custom chat opens for it. */
   const sendToChats = useCallback((q: Question) => void sendQuestionToChats(q), []);
 
-  return { copy, copyLatest, edit, discard, answer, sendToChats };
+  return { copy, copyLatest, edit, discard, sendToChats };
 }
 
 /** How long to wait after switching the shield on before capturing. */

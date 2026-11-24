@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, ChevronDown, CircleStop, Mic, Pause, Play, Plus, Volume2 } from "lucide-react";
+import { AlertTriangle, ChevronDown, CircleStop, Mic, Pause, Play, Volume2 } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { qk } from "@/app/providers/queryKeys";
 import { usePrefs } from "@/app/state/prefs";
@@ -18,12 +18,11 @@ import { LISTEN_SOURCES, listenSources, listenSourcesList, listenSourcesOption, 
 /**
  * Listening, in the title bar, so it is at hand on every screen: Start listening when idle, which
  * asks what to listen to (system audio, the microphone, or both); while listening, the live state
- * with Pause (or Resume) and Stop; New session when nothing is being recorded. The state is always
+ * with Pause (or Resume) and Stop. The state is always
  * written out (RecordingIndicator), never shown by colour alone.
  */
 export function ListeningControl() {
   const listening = useSession((s) => s.listening);
-  const sessionId = useSession((s) => s.currentSessionId);
   const actions = useListeningActions();
   const models = useQuery({ queryKey: qk.models, queryFn: api.models, staleTime: 60_000 });
   const { settings, update } = useEngineSettings();
@@ -35,7 +34,7 @@ export function ListeningControl() {
   const shortcut = acceleratorLabel(hotkey);
   const sources = settings ? listenSources(settings.audio) : null;
 
-  // A failure while listening is said once, whatever screen is open (it used to show on Home only).
+  // A failure while listening is said once, whatever screen is open.
   const told = useRef<string | null>(null);
   useEffect(() => {
     if (state !== "error") {
@@ -131,11 +130,6 @@ export function ListeningControl() {
               </MenuContent>
             </Menu>
           )}
-          {sessionId && state !== "loading_model" ? (
-            <IconButton label="New session: a fresh, empty one" onClick={() => void actions.newSession()}>
-              <Plus className="h-4 w-4" />
-            </IconButton>
-          ) : null}
         </>
       )}
     </div>

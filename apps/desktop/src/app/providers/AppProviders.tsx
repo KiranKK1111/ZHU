@@ -6,7 +6,6 @@ import { Toaster } from "@/components/layout/Toaster";
 import { installZhuCursors } from "@/styles/cursors";
 import { TooltipProvider } from "@/components/primitives/Tooltip";
 import { EngineHttpError } from "@/services/engine";
-import { bindQueryClient } from "@/services/ask";
 import { onShellEvent, shell } from "@/services/shell";
 
 function makeClient(): QueryClient {
@@ -105,11 +104,7 @@ function PrefsSync() {
 }
 
 export function AppProviders({ children, toasts = true }: { children: ReactNode; toasts?: boolean }) {
-  const [client] = useState(() => {
-    const c = makeClient();
-    bindQueryClient(c);
-    return c;
-  });
+  const [client] = useState(makeClient);
   return (
     <QueryClientProvider client={client}>
       <MotionConfig reducedMotion="user">

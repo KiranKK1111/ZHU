@@ -81,8 +81,3 @@ export function useSessionData(): void {
     if (currentId && transcript.data) useTranscript.getState().load(currentId, transcript.data, labels);
   }, [currentId, transcript.data, labels]);
 }
-
-export function useCurrentSession() {
-  const currentId = useSession((s) => s.currentSessionId);
-  return useQuery({ queryKey: qk.session(currentId ?? "none"), queryFn: () => api.session(currentId!), enabled: !!currentId });
-}

@@ -1,6 +1,6 @@
 # Configuration Reference
 
-Engine settings are validated by Pydantic (`engine/zhu_engine/settings.py`), stored in SQLite, and edited in **Settings**. `PUT /api/settings` takes a partial object, `{section: {field: value}}`. UI-only preferences (theme, density, sidebar, window opacity, hotkeys, Enter-to-send, close-to-tray) live in the front-end preference store.
+Engine settings are validated by Pydantic (`engine/zhu_engine/settings.py`), stored in SQLite, and edited in **Settings**. `PUT /api/settings` takes a partial object, `{section: {field: value}}`. UI-only preferences (theme, window opacity, hotkeys, close-to-tray, the questions column's layout, the chat tabs) live in the front-end preference store.
 
 ## audio
 | Field | Default | Meaning |
@@ -41,7 +41,7 @@ Engine settings are validated by Pydantic (`engine/zhu_engine/settings.py`), sto
 Connect: `POST /api/providers/{id}/test` checks the key, stores the model list, and selects a model when none is set. Your own models: `POST /api/providers/custom` `{name, base_url, model?, api_key?, images?}` · `DELETE /api/providers/{id}` (ids `custom-<8 hex>` only). See PROVIDERS.md.
 
 ## App preferences (main window's local storage, key `zhu.prefs.v1`)
-`theme` `dark` · `closeToTray` `true` · `hotkeys` · `showTranscript` `true` · `homeSplit` `0.5` (the questions' share of the width on Home) · `transcriptSplit` `0.34` (the transcript's share of the questions column) · `answerProvider` (the model that answers) · `autoAnswer` `false` · `instructions` (how answers should sound) · `webChatTabs` · `webChatActive` · `webChatAutoQuestions` `true` · `webChatAutoScreenshots` `true` · `webChatTarget` `all` (`all`/`active`) · `windowOpacity` `1` (0.4 to 1; hidden ZHU starts at 0.8 and is not saved). Unknown or mistyped keys from older versions are ignored.
+`theme` `dark` · `closeToTray` `true` · `hotkeys` · `showTranscript` `true` · `questionsCollapsed` `false` · `questionsSplit` `0.4` (the questions column's share of the width beside the chats, 0.2–0.6, at least 300 px; `homeSplit` of earlier versions is carried over) · `transcriptSplit` `0.34` (the transcript's share of the questions column) · `answerProvider` (the connected provider a new Custom chat starts with, until a model is picked there) · `chatProvider` / `chatModel` (the model the Custom chat answers with; `null`: the first free model) · `instructions` (how answers should sound) · `webChatTabs` · `webChatActive` · `webChatAutoQuestions` `true` · `webChatAutoScreenshots` `true` · `webChatTarget` `all` (`all`/`active`) · `windowOpacity` `1` (0.4 to 1; hidden ZHU starts at 0.8 and is not saved). Unknown or mistyped keys from older versions are ignored (`sidePanelScope`, the screenshots panel's old All / This session switch, and `webChatResume`, the old *Your resume in new chats* setting, among them).
 
 ## What the Settings screen controls
 The app shows only: audio sources and devices, language, the speech model, storing transcripts, and the items above. Every other engine setting on this page (VAD thresholds, GPU device and precision, VRAM budget, performance profile, question timing, capture format, retention, technical vocabulary) keeps its default and can still be changed through `PUT /api/settings` or `PUT /api/vocabulary` for unusual setups.

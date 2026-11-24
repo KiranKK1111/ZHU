@@ -975,7 +975,7 @@ mod imp {
     fn start() {
         #[cfg(debug_assertions)]
         ACCEPT_INJECTED.store(matches!(std::env::var("ZHU_FREEZE_TEST").as_deref(), Ok("1" | "visible")), Ordering::SeqCst);
-        if let Some(main) = super::APP.get().and_then(|a| a.get_webview_window("main")).and_then(|w| w.hwnd().ok()) {
+        if let Some(main) = super::APP.get().and_then(crate::main_window).and_then(|w| w.hwnd().ok()) {
             MAIN.store(main.0 as isize, Ordering::SeqCst);
         }
         if STAND_IN.load(Ordering::SeqCst) == 0 {

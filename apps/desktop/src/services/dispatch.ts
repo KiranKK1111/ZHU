@@ -5,12 +5,10 @@
  */
 import type { QueryClient } from "@tanstack/react-query";
 import { useChat, type ChatEnding } from "@/app/state/chat";
-import { useComposer } from "@/app/state/composer";
 import { useQuestions } from "@/app/state/questions";
 import { useSession } from "@/app/state/session";
 import { useTranscript } from "@/app/state/transcript";
 import { toast, useDownloads } from "@/app/state/ui";
-import { usePrefs } from "@/app/state/prefs";
 import { qk } from "@/app/providers/queryKeys";
 import type {
   DownloadProgress,
@@ -19,16 +17,13 @@ import type {
   GpuInfo,
   ListeningStatus,
   ProviderErrorInfo,
-  ProviderInfo,
   Question,
   Screenshot,
   TranscriptRow,
   TranscriptSegmentEvent,
 } from "@/types/engine";
 import type { WindowKind } from "@/types/shell";
-import { pickAnswerModel } from "@/hooks/useProviders";
 import { api } from "./engine";
-import { onQuestionForAutoAnswer } from "./ask";
 import { onQuestionEvent, onScreenshotEvent } from "./webchatDelivery";
 
 export function dispatchEnvelopes(batch: Envelope[], qc: QueryClient, kind: WindowKind): void {
@@ -67,8 +62,6 @@ export function dispatchEnvelopes(batch: Envelope[], qc: QueryClient, kind: Wind
       case "question.discarded": {
         const q = env.data as Question;
         questions.push(q);
-        // A finished question: ask the connected model when Auto-answer is on (main window only).
-        if (t === "question.completed" && kind === "main") onQuestionForAutoAnswer(q);
         // Embedded chat tabs: place the completed question in their message boxes (main window only).
         if (kind === "main" && (t === "question.completed" || t === "question.revised")) onQuestionEvent(q, t === "question.revised");
         invalidate.add("sessions");
@@ -96,18 +89,12 @@ export function dispatchEnvelopes(batch: Envelope[], qc: QueryClient, kind: Wind
       case "screenshot.created":
         if (kind === "main") {
           onScreenshotEvent(env.data as Screenshot);
-          // A new capture is attached to the ask box when the selected model can read images,
-          // ready to go with the next question.
-          const shot = env.data as Screenshot;
-          const model = pickAnswerModel(qc.getQueryData<ProviderInfo[]>(qk.providers) ?? [], usePrefs.getState().answerProvider);
-          if (shot.id && !shot.duplicate && model?.capabilities.images) useComposer.getState().attach([shot.id]);
         }
         invalidate.add("screenshots");
         invalidate.add("sessions");
         break;
       case "screenshot.deleted": {
         const id = (env.data as { id: string }).id;
-        useComposer.getState().detach(id);
         useChat.getState().forgetScreenshot(id);
         invalidate.add("screenshots");
         invalidate.add("sessions");
@@ -127,33 +114,6 @@ export function dispatchEnvelopes(batch: Envelope[], qc: QueryClient, kind: Wind
           useTranscript.getState().reset(null);
         }
         qc.removeQueries({ queryKey: qk.session(id) });
-        break;
-      }
-      case "provider.started": {
-        const d = env.data as { request_id: string; interaction_id: string; provider_id: string; model: string };
-        // The submitting window registers the prompt itself; other windows learn about it here.
-        if (!useComposer.getState().responses[d.request_id]) {
-          useComposer.getState().started({ requestId: d.request_id, interactionId: d.interaction_id, providerId: d.provider_id, model: d.model, prompt: "", screenshotIds: [] });
-        }
-        if (env.session_id) invalidate.add(`interactions:${env.session_id}`);
-        break;
-      }
-      case "provider.delta": {
-        const d = env.data as { request_id: string; text: string };
-        useComposer.getState().delta(d.request_id, d.text);
-        break;
-      }
-      case "provider.completed": {
-        const d = env.data as { request_id: string; model: string | null };
-        useComposer.getState().completed(d.request_id, d.model);
-        if (env.session_id) invalidate.add(`interactions:${env.session_id}`);
-        break;
-      }
-      case "provider.error": {
-        const d = env.data as { request_id: string; error: ProviderErrorInfo };
-        useComposer.getState().failed(d.request_id, d.error);
-        if (kind === "main" && d.error.kind !== "cancelled") toast.error("Provider request failed", d.error.message);
-        if (env.session_id) invalidate.add(`interactions:${env.session_id}`);
         break;
       }
       case "provider.updated":
@@ -224,8 +184,5 @@ export function dispatchEnvelopes(batch: Envelope[], qc: QueryClient, kind: Wind
     useSession.getState().setListening(listening);
     qc.setQueryData(qk.listening, listening);
   }
-  for (const key of invalidate) {
-    if (key.startsWith("interactions:")) void qc.invalidateQueries({ queryKey: qk.interactions(key.slice(13)) });
-    else void qc.invalidateQueries({ queryKey: [key] });
-  }
+  for (const key of invalidate) void qc.invalidateQueries({ queryKey: [key] });
 }

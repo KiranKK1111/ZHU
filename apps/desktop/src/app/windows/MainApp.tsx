@@ -16,7 +16,6 @@ import { useSessionData } from "@/hooks/useSessionData";
 import { api } from "@/services/engine";
 import { inTauri, onShellEvent, shell } from "@/services/shell";
 import { preloadTargetTabs } from "@/services/webchatDelivery";
-import { useModelSync } from "@/features/chat/useModelChoice";
 import { HOTKEY_LABELS, type HotkeyAction, type TrayAction, type WebChatEvent } from "@/types/shell";
 import { errorMessage } from "@/utils/format";
 
@@ -114,8 +113,6 @@ function useShellIntegration() {
     if (state === "listening") preloadTargetTabs();
   }, [state]);
 
-  useModelSync(); // Home answers with the model chosen in Custom chat
-
   useEffect(() => {
     if (!inTauri) return;
     void shell
@@ -145,7 +142,6 @@ function useShellIntegration() {
         const a = actions.current;
         if (action === "toggle_listening") void a.listening.toggle();
         if (action === "open_settings") useNav.getState().navigate("settings");
-        if (action === "new_session") void a.listening.newSession();
       }),
     );
     // Page loads and titles of the embedded chat tabs (tracked on every screen, since questions
@@ -159,7 +155,7 @@ function useShellIntegration() {
     );
     if (inTauri) {
       // After a reload of this window no chat page may stay on top of whatever screen comes up;
-      // the AI chats screen shows its tab again when it mounts.
+      // the chats screen shows its tab again when it mounts.
       if (useNav.getState().route !== "webchats") void shell.webchatHide().catch(() => undefined);
       void shell
         .webchatTabs()

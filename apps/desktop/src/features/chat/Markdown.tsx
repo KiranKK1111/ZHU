@@ -1,7 +1,7 @@
 import "katex/dist/katex.min.css";
 import "@/styles/chat.css";
 import { Check, Copy } from "lucide-react";
-import { memo, useState, type ComponentPropsWithoutRef, type ReactNode } from "react";
+import { memo, useMemo, useState, type ComponentPropsWithoutRef, type ReactNode } from "react";
 import ReactMarkdown, { type Components, type ExtraProps } from "react-markdown";
 import rehypeHighlight from "rehype-highlight";
 import rehypeKatex from "rehype-katex";
@@ -12,6 +12,7 @@ import { copyText, openExternal } from "@/services/shell";
 import { cn } from "@/utils/cn";
 import { errorMessage } from "@/utils/format";
 import { prepareMarkdown } from "./chatText";
+import { closeOpenMarkdown, splitBlocks } from "./markdownBlocks";
 
 type HastNode = NonNullable<ExtraProps["node"]>;
 
@@ -99,16 +100,38 @@ const COMPONENTS: Components = {
   ),
 };
 
+const REMARK = [remarkGfm, remarkMath, remarkLineBreaks];
+const REHYPE: NonNullable<Parameters<typeof ReactMarkdown>[0]["rehypePlugins"]> = [
+  [rehypeKatex, { throwOnError: false, strict: false }],
+  [rehypeHighlight, { detect: false }],
+];
+
+/** One top-level block. Memoized on its text: a finished block is never parsed or highlighted again. */
+const Block = memo(function Block({ text }: { text: string }) {
+  return (
+    <ReactMarkdown remarkPlugins={REMARK} rehypePlugins={REHYPE} components={COMPONENTS}>
+      {text}
+    </ReactMarkdown>
+  );
+});
+
 /**
  * A chat answer rendered as Markdown: tables and task lists (GFM), highlighted code with a copy
  * button, and LaTeX mathematics. Raw HTML in the text is shown as text, never interpreted.
+ *
+ * The answer is rendered block by block (markdownBlocks.ts): while it is being written, only its
+ * last block changes, so the cost of each update stays that of one paragraph however long the
+ * answer grows; and that block is tidied so half-written syntax does not flash.
  */
 export const Markdown = memo(function Markdown({ text, streaming, className }: { text: string; streaming?: boolean; className?: string }) {
+  const blocks = useMemo(() => {
+    const all = splitBlocks(prepareMarkdown(text));
+    if (streaming && all.length) all[all.length - 1] = closeOpenMarkdown(all[all.length - 1]);
+    return all;
+  }, [text, streaming]);
   return (
     <div className={cn("zhu-md selectable", streaming && "is-streaming", className)}>
-      <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath, remarkLineBreaks]} rehypePlugins={[[rehypeKatex, { throwOnError: false, strict: false }], [rehypeHighlight, { detect: false }]]} components={COMPONENTS}>
-        {prepareMarkdown(text)}
-      </ReactMarkdown>
+      {blocks.map((block, i) => (block ? <Block key={i} text={block} /> : null))}
     </div>
   );
 });

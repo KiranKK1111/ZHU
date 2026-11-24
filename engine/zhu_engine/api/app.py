@@ -127,7 +127,26 @@ class ChatSendBody(BaseModel):
     screenshot_ids: list[str] = Field(default_factory=list, max_length=10)
 
 
-class ResumeEnableBody(BaseModel):
+class ResumesBody(BaseModel):
+    """Which resume is in use, and whether it goes to models at all."""
+    active_id: Optional[str] = Field(None, min_length=1, max_length=40)
+    enabled: Optional[bool] = None
+
+
+class ResumeEditBody(BaseModel):
+    label: Optional[str] = Field(None, max_length=200)
+    # Checked against the limit by the store, so the message can say how long the text is.
+    text: Optional[str] = Field(None, max_length=200_000)
+    # Bring back the text read from the file, dropping the user's edits.
+    revert: bool = False
+
+
+class JobBody(BaseModel):
+    title: Optional[str] = Field(None, max_length=400)
+    text: str = Field(max_length=100_000)
+
+
+class JobEnableBody(BaseModel):
     enabled: bool
 
 
@@ -563,14 +582,9 @@ def create_app(service: SessionService, token: str, port_ref: dict) -> FastAPI:
     async def chat_send(cid: str, body: ChatSendBody):
         return await s.chat_send(cid, body.provider_id, body.model, body.content, body.regenerate, body.screenshot_ids)
 
-    # ------------------------------------------------------------------ résumé
-    @app.get("/api/resume")
-    async def resume_get():
-        return s.resume_info()
-
-    @app.post("/api/resume")
-    async def resume_upload(request: Request, file_name: str = Query(..., min_length=1, max_length=260)):
-        """Upload a résumé: the request body is the file itself. Only its text is kept."""
+    # ------------------------------------------------------------------ resumes and the job
+    async def read_upload(request: Request) -> bytes:
+        """The request body is the file itself; it is refused as soon as it is too large."""
         declared = request.headers.get("content-length")
         if declared and declared.isdigit() and int(declared) > MAX_FILE_BYTES:
             raise HTTPException(413, "The file is larger than 10 MB.")
@@ -579,16 +593,68 @@ def create_app(service: SessionService, token: str, port_ref: dict) -> FastAPI:
             data += chunk
             if len(data) > MAX_FILE_BYTES:
                 raise HTTPException(413, "The file is larger than 10 MB.")
-        return await asyncio.to_thread(s.resume_set, file_name, bytes(data))
+        return bytes(data)
 
-    @app.patch("/api/resume")
-    async def resume_enable(body: ResumeEnableBody):
-        return s.resume_enable(body.enabled)
+    @app.get("/api/resumes")
+    async def resumes_get():
+        return s.resumes_info()
 
-    @app.delete("/api/resume")
-    async def resume_delete():
-        s.resume_delete()
+    @app.post("/api/resumes")
+    async def resume_upload(request: Request, file_name: str = Query(..., min_length=1, max_length=260),
+                            provider_id: Optional[str] = Query(None, max_length=80), model: Optional[str] = Query(None, max_length=200)):
+        """Add the resume from a file, in place of the one there was. It is read once, and condensed once
+        into a short profile with the given model (the Custom chat's), in the background."""
+        return await s.resume_add(file_name, await read_upload(request), provider_id, model)
+
+    @app.post("/api/resumes/condense")
+    async def resume_condense(provider_id: Optional[str] = Query(None, max_length=80), model: Optional[str] = Query(None, max_length=200)):
+        """Make the short profile (and the job's brief) again now."""
+        return s.condense_again(provider_id, model)
+
+    @app.patch("/api/resumes")
+    async def resumes_select(body: ResumesBody):
+        return s.resume_select(body.active_id, body.enabled)
+
+    @app.get("/api/resumes/chat-context")
+    async def resumes_chat_context():
+        return s.chat_context()
+
+    @app.patch("/api/resumes/{rid}")
+    async def resume_edit(rid: str, body: ResumeEditBody):
+        return s.resume_update(rid, body.label, body.text, body.revert)
+
+    @app.delete("/api/resumes/{rid}")
+    async def resume_delete(rid: str):
+        return s.resume_delete(rid)
+
+    @app.get("/api/resumes/{rid}/file")
+    async def resume_file(rid: str):
+        """The resume file as it was uploaded, to be shown in ZHU (inline, never cached)."""
+        path, media, name = s.resume_file(rid)
+        return FileResponse(path, media_type=media, filename=name, content_disposition_type="inline", headers={"Cache-Control": "no-store"})
+
+    @app.post("/api/resumes/{rid}/open")
+    async def resume_open(rid: str):
+        """Open the resume file in its own program (Word for a .docx)."""
+        await asyncio.to_thread(s.resume_open, rid)
         return {"ok": True}
+
+    @app.put("/api/job")
+    async def job_put(body: JobBody, provider_id: Optional[str] = Query(None, max_length=80), model: Optional[str] = Query(None, max_length=200)):
+        return s.job_set(body.title, body.text, provider_id, model)
+
+    @app.post("/api/job")
+    async def job_upload(request: Request, file_name: str = Query(..., min_length=1, max_length=260), title: Optional[str] = Query(None, max_length=400),
+                         provider_id: Optional[str] = Query(None, max_length=80), model: Optional[str] = Query(None, max_length=200)):
+        return await s.job_add_file(file_name, await read_upload(request), title, provider_id, model)
+
+    @app.patch("/api/job")
+    async def job_enable(body: JobEnableBody):
+        return s.job_enable(body.enabled)
+
+    @app.delete("/api/job")
+    async def job_delete():
+        return s.job_delete()
 
     # ------------------------------------------------------------------ privacy
     @app.post("/api/data/purge")

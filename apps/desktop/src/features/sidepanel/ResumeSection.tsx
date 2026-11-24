@@ -1,106 +1,186 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Eye, FileText, RefreshCw, Trash2, Upload } from "lucide-react";
-import { useRef, useState } from "react";
+import { Briefcase, FileText, Plus, Upload } from "lucide-react";
+import { useRef, useState, type ReactNode } from "react";
 import { qk } from "@/app/providers/queryKeys";
+import { currentPrefs } from "@/app/state/prefs";
 import { toast } from "@/app/state/ui";
-import { Button, IconButton } from "@/components/primitives/Button";
 import { Switch } from "@/components/primitives/Controls";
-import { ConfirmDialog, Modal } from "@/components/primitives/Dialog";
-import { api } from "@/services/engine";
-import type { ResumeInfo } from "@/types/engine";
+import { ConfirmDialog } from "@/components/primitives/Dialog";
+import { api, type ModelChoice } from "@/services/engine";
+import type { Condensed, ResumesState } from "@/types/engine";
 import { cn } from "@/utils/cn";
-import { errorMessage, formatRelative } from "@/utils/format";
+import { errorMessage } from "@/utils/format";
+import { JobEditor } from "./ResumeEditors";
+import { fileKind, KIND_LABEL, ResumePreview } from "./ResumePreview";
 
-const ACCEPT = ".pdf,.docx,.txt,.md";
+/** What can be uploaded: documents, and pictures of a page (read with Windows text recognition). */
+export const RESUME_ACCEPT = ".pdf,.docx,.txt,.md,.png,.jpg,.jpeg,.webp";
+
+/** The model the Custom chat uses: it condenses the resume into its short profile, once. */
+export function chatModel(): ModelChoice {
+  const p = currentPrefs();
+  return { provider_id: p.chatProvider, model: p.chatModel };
+}
+
+/** What the card says about the short profile models get. */
+export function condensedLabel(c: Condensed | undefined, words: number): string {
+  // An engine from before profiles (still running after an update) sends none: the words, as before.
+  if (c?.state === "ready") return "Short profile ready";
+  if (c?.state === "making") return "Making short profile…";
+  if (c?.state === "failed") return "Full text for now";
+  return `${words.toLocaleString()} words`;
+}
 
 /**
- * The user's résumé. Its text is given to the model with every question while it is switched on,
- * and the model works out for itself which questions are about the user. ZHU holds no prepared
- * answers and no list of "profile questions".
+ * The user's resume and the job they are applying for, side by side as two cards of one size.
+ * One resume is kept (a new upload replaces it); its card opens the file as it was uploaded. The
+ * job's card opens the job to read and change. Each has a switch: while on, it goes to the model
+ * with every question and to chat websites with the first question of a new chat, and the model
+ * works out for itself which questions are about the user.
  */
 export function ResumeSection() {
   const qc = useQueryClient();
-  const resume = useQuery({ queryKey: qk.resume, queryFn: api.resume, staleTime: 60_000 });
+  const query = useQuery({ queryKey: qk.resume, queryFn: api.resumes, staleTime: 60_000 });
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
-  const [viewing, setViewing] = useState(false);
+  const [previewing, setPreviewing] = useState(false);
+  const [editingJob, setEditingJob] = useState(false);
   const [removing, setRemoving] = useState(false);
-  const info = resume.data ?? null;
+  const [removingJob, setRemovingJob] = useState(false);
+  const state = query.data ?? null;
+  const resume = state?.items.find((r) => r.id === state.active_id) ?? null;
+  const job = state?.job ?? null;
+
+  const run = async (what: string, action: () => Promise<ResumesState>): Promise<ResumesState | null> => {
+    try {
+      const next = await action();
+      qc.setQueryData(qk.resume, next);
+      return next;
+    } catch (err) {
+      toast.error(what, errorMessage(err));
+      return null;
+    }
+  };
 
   const upload = async (file: File | undefined) => {
     if (!file) return;
     setBusy(true);
     try {
-      const saved = await api.uploadResume(file);
-      qc.setQueryData(qk.resume, saved);
-      toast.success("Résumé added", saved.truncated ? "It is long: only the first part is used." : `${saved.words.toLocaleString()} words read from ${saved.file_name}.`);
-    } catch (err) {
-      toast.error("That file could not be used", errorMessage(err));
+      const replacing = !!resume;
+      const next = await run("That file could not be used", () => api.uploadResume(file, chatModel()));
+      const added = next?.items.find((r) => r.id === next.active_id);
+      if (!added) return;
+      const title = replacing ? "Resume replaced" : "Resume added";
+      if (added.ocr) {
+        toast.success(title, "It was read from a picture: check the text for misread names and numbers.");
+        setPreviewing(true); // shown right away, with the text read from it, so it gets checked
+      } else {
+        toast.success(title, added.truncated ? "It is long: only the first part is used." : `${added.words.toLocaleString()} words read from ${added.file_name}.`);
+      }
     } finally {
       setBusy(false);
       if (input.current) input.current.value = ""; // the same file can be chosen again
     }
   };
-
-  const setEnabled = async (enabled: boolean) => {
-    try {
-      qc.setQueryData(qk.resume, await api.enableResume(enabled));
-    } catch (err) {
-      toast.error("Not saved", errorMessage(err));
-    }
-  };
+  const choose = () => input.current?.click();
 
   return (
-    <section aria-label="Résumé" className="shrink-0 border-t border-border-subtle px-3 pb-3 pt-3">
-      <input ref={input} type="file" accept={ACCEPT} className="hidden" aria-hidden tabIndex={-1} onChange={(e) => void upload(e.target.files?.[0])} />
-      <h2 className="mb-2 text-card text-fg">Your résumé</h2>
-      {resume.isLoading ? (
-        <div className="zhu-skeleton h-[76px] w-full" />
-      ) : info ? (
-        <ResumeCard info={info} busy={busy} onToggle={(v) => void setEnabled(v)} onView={() => setViewing(true)} onReplace={() => input.current?.click()} onRemove={() => setRemoving(true)} />
+    <section aria-label="Resume and job" className="shrink-0 border-t border-border-subtle px-3 pb-3 pt-3">
+      <input ref={input} type="file" accept={RESUME_ACCEPT} className="hidden" aria-hidden tabIndex={-1} onChange={(e) => void upload(e.target.files?.[0])} />
+      <h2 className="mb-2 text-card text-fg">Resume and job</h2>
+      {query.isLoading ? (
+        <div className="grid grid-cols-2 gap-2">
+          <div className="zhu-skeleton h-[152px] rounded-xl" />
+          <div className="zhu-skeleton h-[152px] rounded-xl" />
+        </div>
       ) : (
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => input.current?.click()}
-          className="flex w-full flex-col items-center gap-1.5 rounded-lg border border-dashed border-border px-3 py-4 text-center transition-colors duration-fast hover:border-accent hover:bg-accent-soft disabled:opacity-[var(--zhu-opacity-disabled)]"
-        >
-          <Upload className={cn("h-4 w-4 text-accent", busy && "animate-pulse")} aria-hidden />
-          <span className="text-secondary font-medium text-fg">{busy ? "Reading…" : "Upload your résumé"}</span>
-          <span className="text-caption text-fg-3">PDF, Word or text. Questions about you are then answered from it.</span>
-        </button>
+        <div className="grid grid-cols-2 gap-2">
+          {resume ? (
+            <Card
+              icon={<FileText className="h-[18px] w-[18px]" />}
+              caption="Resume"
+              title={resume.label}
+              detail={`${KIND_LABEL[fileKind(resume)]} · ${condensedLabel(resume.profile, resume.words)}`}
+              open={`Open your resume: ${resume.label}`}
+              onOpen={() => setPreviewing(true)}
+              on={!!state?.enabled}
+              switchLabel="Use the resume in answers"
+              onToggle={(v) => void run("Not saved", () => api.selectResume({ enabled: v }))}
+            />
+          ) : (
+            <AddCard icon={<Upload className={cn("h-[18px] w-[18px]", busy && "animate-pulse")} />} title={busy ? "Reading…" : "Your resume"} disabled={busy} onClick={choose}>
+              PDF, Word, text or a picture of the page
+            </AddCard>
+          )}
+          {job ? (
+            <Card
+              icon={<Briefcase className="h-[18px] w-[18px]" />}
+              caption="Job"
+              title={job.title || "Job description"}
+              detail={condensedLabel(job.brief, job.words)}
+              open={`Open the job: ${job.title || "job description"}`}
+              onOpen={() => setEditingJob(true)}
+              on={job.enabled}
+              switchLabel="Use the job in answers"
+              onToggle={(v) => void run("Not saved", () => api.enableJob(v))}
+            />
+          ) : (
+            <AddCard icon={<Plus className="h-[18px] w-[18px]" />} title="The job" onClick={() => setEditingJob(true)}>
+              Paste or upload the job description
+            </AddCard>
+          )}
+        </div>
       )}
 
-      <Modal
-        open={viewing && !!info}
-        onOpenChange={setViewing}
-        title={info?.file_name ?? "Résumé"}
-        description="This is the text ZHU read from your file, and exactly what the model receives. Check that nothing important is missing."
-        size="lg"
-        footer={
-          <Button variant="primary" onClick={() => setViewing(false)}>
-            Done
-          </Button>
-        }
-      >
-        {info?.truncated ? <p className="mb-3 rounded-md bg-warning-soft px-3 py-2 text-secondary text-warning">The file is longer than ZHU uses. Only the text below is given to the model.</p> : null}
-        <pre className="selectable whitespace-pre-wrap break-words font-sans text-secondary leading-relaxed text-fg-2">{info?.text}</pre>
-      </Modal>
-
+      <ResumePreview
+        item={resume}
+        open={previewing && !!resume}
+        busy={busy}
+        onOpenChange={setPreviewing}
+        onReplace={choose}
+        onRemove={() => setRemoving(true)}
+        onMakeAgain={() => void run("The short profile was not made", () => api.condenseResume(chatModel()))}
+      />
+      <JobEditor
+        open={editingJob}
+        job={job}
+        limit={state?.limits.job_chars ?? 12_000}
+        accept={RESUME_ACCEPT}
+        onOpenChange={setEditingJob}
+        onRemove={job ? () => setRemovingJob(true) : undefined}
+        onSave={async (body) => !!(await run("Not saved", () => api.setJob(body, chatModel())))}
+        onUpload={async (file, title) => {
+          const next = await run("That file could not be used", () => api.uploadJob(file, title, chatModel()));
+          if (next?.job) toast.success("Job added", next.job.ocr ? "It was read from a picture: check the text." : `${next.job.words.toLocaleString()} words read from ${file.name}.`);
+          return !!next;
+        }}
+      />
       <ConfirmDialog
         open={removing}
         onOpenChange={setRemoving}
-        title="Remove your résumé?"
-        description="Its text is deleted from this computer. Answers will no longer draw on it."
+        title={`Remove “${resume?.label ?? "your resume"}”?`}
+        description="The file and its text are deleted from this computer. Answers no longer draw on a resume until you upload one again."
         confirmLabel="Remove"
         destructive
         onConfirm={async () => {
-          try {
-            await api.deleteResume();
-            qc.setQueryData(qk.resume, null);
-            toast.success("Résumé removed");
-          } catch (err) {
-            toast.error("Could not remove the résumé", errorMessage(err));
+          if (!resume) return;
+          if (await run("Could not remove the resume", () => api.deleteResume(resume.id))) {
+            setPreviewing(false);
+            toast.success("Resume removed");
+          }
+        }}
+      />
+      <ConfirmDialog
+        open={removingJob}
+        onOpenChange={setRemovingJob}
+        title="Remove the job?"
+        description="The job description is deleted from this computer. Answers no longer refer to it."
+        confirmLabel="Remove"
+        destructive
+        onConfirm={async () => {
+          if (await run("Could not remove the job", () => api.deleteJob())) {
+            setEditingJob(false);
+            toast.success("Job removed");
           }
         }}
       />
@@ -108,38 +188,72 @@ export function ResumeSection() {
   );
 }
 
-function ResumeCard({ info, busy, onToggle, onView, onReplace, onRemove }: { info: ResumeInfo; busy: boolean; onToggle: (v: boolean) => void; onView: () => void; onReplace: () => void; onRemove: () => void }) {
+/** A filled card: the whole card opens it; the switch at the bottom decides whether answers use it. */
+function Card({
+  icon,
+  caption,
+  title,
+  detail,
+  open,
+  onOpen,
+  on,
+  switchLabel,
+  onToggle,
+}: {
+  icon: ReactNode;
+  caption: string;
+  title: string;
+  detail: string;
+  open: string;
+  onOpen: () => void;
+  on: boolean;
+  switchLabel: string;
+  onToggle: (v: boolean) => void;
+}) {
   return (
-    <div className="rounded-lg border border-border-subtle bg-surface">
-      <div className="flex items-center gap-2.5 px-3 pt-2.5">
-        <span className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-md", info.enabled ? "bg-accent-soft text-accent" : "bg-surface-2 text-fg-3")}>
-          <FileText className="h-4 w-4" aria-hidden />
-        </span>
-        <div className="min-w-0 flex-1">
-          <div className="truncate text-secondary font-medium text-fg" title={info.file_name}>
-            {info.file_name}
-          </div>
-          <div className="truncate text-caption text-fg-3">
-            {info.words.toLocaleString()} words{info.uploaded_at ? ` · ${formatRelative(info.uploaded_at)}` : ""}
-            {info.truncated ? " · shortened" : ""}
-          </div>
+    <div className="group relative flex min-h-[152px] min-w-0 flex-col rounded-xl border border-border-subtle bg-surface p-3 transition-colors duration-fast hover:border-border hover:bg-surface-2">
+      {/* The card itself is the button; the switch sits above it. */}
+      <button type="button" aria-label={open} title={open} onClick={onOpen} className="absolute inset-0 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent" />
+      <span
+        aria-hidden
+        className={cn(
+          "pointer-events-none flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors duration-fast",
+          on ? "bg-accent-soft text-accent" : "bg-surface-2 text-fg-3",
+        )}
+      >
+        {icon}
+      </span>
+      <div className="pointer-events-none mt-2.5 min-w-0 flex-1">
+        <div className="text-caption font-medium text-fg-3">{caption}</div>
+        <div className="mt-0.5 line-clamp-2 break-words text-secondary font-medium leading-snug text-fg" title={title}>
+          {title}
         </div>
-        <Switch checked={info.enabled} label="Use the résumé in answers" onCheckedChange={onToggle} />
+        <div className="mt-0.5 truncate text-caption text-fg-3" title={detail}>
+          {detail}
+        </div>
       </div>
-      <p className="px-3 pt-1.5 text-caption text-fg-3">
-        {info.enabled ? "Sent with each question, so the model can answer the ones about you in your own voice." : "Kept on this computer, but not sent to any model."}
-      </p>
-      <div className="mt-1.5 flex items-center gap-0.5 border-t border-border-subtle px-1.5 py-1">
-        <Button size="sm" variant="ghost" icon={<Eye className="h-3.5 w-3.5" />} onClick={onView}>
-          View text
-        </Button>
-        <Button size="sm" variant="ghost" icon={<RefreshCw className={cn("h-3.5 w-3.5", busy && "animate-spin")} />} disabled={busy} onClick={onReplace}>
-          Replace
-        </Button>
-        <IconButton label="Remove the résumé" size="sm" variant="danger" className="ml-auto" onClick={onRemove}>
-          <Trash2 className="h-3.5 w-3.5" />
-        </IconButton>
+      <div className="relative mt-2 flex items-center justify-between gap-2 border-t border-border-subtle pt-2">
+        <span className={cn("text-caption", on ? "text-fg-2" : "text-fg-3")}>{on ? "In answers" : "Not used"}</span>
+        <Switch checked={on} label={switchLabel} onCheckedChange={onToggle} />
       </div>
     </div>
+  );
+}
+
+/** An empty card: adds the resume (a file) or the job. */
+function AddCard({ icon, title, children, disabled, onClick }: { icon: ReactNode; title: string; children: ReactNode; disabled?: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      className="flex min-h-[152px] min-w-0 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border px-3 py-3 text-center transition-colors duration-fast hover:border-accent hover:bg-accent-soft disabled:opacity-[var(--zhu-opacity-disabled)]"
+    >
+      <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent-soft text-accent" aria-hidden>
+        {icon}
+      </span>
+      <span className="text-secondary font-medium text-fg">{title}</span>
+      <span className="text-caption leading-snug text-fg-3">{children}</span>
+    </button>
   );
 }

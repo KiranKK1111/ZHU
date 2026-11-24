@@ -239,6 +239,68 @@ html.zhu-transparent body {
   from { opacity: 0; }
   to { opacity: 1; }
 }
+
+/*
+ * A list that follows streamed content to the bottom (hooks/useStickToBottom.ts). It moves itself,
+ * frame by frame, so CSS smooth scrolling stays off (it would fight the glide); and its scrolling
+ * stays inside it rather than moving the page around it.
+ */
+.zhu-follow-scroll {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scroll-behavior: auto;
+}
+.zhu-appear {
+  animation: zhu-fade var(--zhu-motion-fast) var(--zhu-ease-standard) both;
+}
+/* "Latest": rises into place, centred at the bottom of the list. */
+.zhu-latest {
+  animation: zhu-latest-in var(--zhu-motion-fast) var(--zhu-ease-standard) both;
+}
+@keyframes zhu-latest-in {
+  from { opacity: 0; transform: translate(-50%, 6px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+/* Waiting for the first word of an answer. */
+.zhu-typing {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 1.65em;
+}
+.zhu-typing i {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--zhu-text-3);
+  animation: zhu-typing 1.2s ease-in-out infinite;
+}
+.zhu-typing i:nth-child(2) {
+  animation-delay: 0.15s;
+}
+.zhu-typing i:nth-child(3) {
+  animation-delay: 0.3s;
+}
+@keyframes zhu-typing {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.45;
+  }
+  30% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .zhu-typing i,
+  .zhu-appear,
+  .zhu-latest {
+    animation: none;
+  }
+}
 @keyframes zhu-pop {
   from { opacity: 0; transform: translate(-50%, -48%) scale(0.98); }
   to { opacity: 1; transform: translate(-50%, -50%) scale(1); }

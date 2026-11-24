@@ -5,7 +5,6 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { qk } from "@/app/providers/queryKeys";
 import { usePrefs } from "@/app/state/prefs";
 import { useChat } from "@/app/state/chat";
-import { latestQuestion, useQuestions } from "@/app/state/questions";
 import { toast } from "@/app/state/ui";
 import { Thumb } from "@/components/capture/Thumb";
 import { Button, IconButton } from "@/components/primitives/Button";
@@ -20,7 +19,6 @@ import { api, EngineHttpError } from "@/services/engine";
 import type { ChatConversation, ChatMessage, ProviderInfo } from "@/types/engine";
 import { cn } from "@/utils/cn";
 import { errorMessage, formatRelative } from "@/utils/format";
-import { questionCopyText } from "@/utils/questionPresentation";
 import { MessageList } from "./Messages";
 import { ModelPicker } from "./ModelPicker";
 import { imageAlternative, imageSupportKnown, readsImages, resolveChatModel, type ChatModelOption } from "./models";
@@ -28,7 +26,6 @@ import { useSelectModel } from "./useModelChoice";
 
 const NO_MESSAGES: ChatMessage[] = [];
 const NO_ATTACHMENTS: string[] = [];
-const STARTERS = ["Explain the CAP theorem with a real example", "Ask me a system design interview question", "What is the difference between a process and a thread?"];
 
 /**
  * The built-in chat: a conversation with any model of the providers the user has connected.
@@ -51,7 +48,7 @@ export function ChatPane({ tab, onConversation }: { tab: WebChatTab; onConversat
   const answerProvider = usePrefs((p) => p.answerProvider);
   const model = useMemo(() => {
     if (chosenProvider && chosenModel) return resolveChatModel(list, { providerId: chosenProvider, model: chosenModel });
-    // Nothing chosen in the chat yet: the model that answers on Home.
+    // Nothing chosen in the chat yet: the default model (the first connected one, see pickAnswerModel).
     const home = pickAnswerModel(list, answerProvider);
     return resolveChatModel(list, home?.model ? { providerId: home.id, model: home.model } : null);
   }, [list, chosenProvider, chosenModel, answerProvider]);
@@ -113,7 +110,7 @@ export function ChatPane({ tab, onConversation }: { tab: WebChatTab; onConversat
     if (requestId) void api.cancelRequest(requestId).catch((e) => toast.error("Could not stop the answer", errorMessage(e)));
   }, [requestId]);
 
-  const select = useSelectModel(); // the same model answers on Home
+  const select = useSelectModel();
   const shown = messages ?? NO_MESSAGES;
   const loading = !!cid && !messages && !loadError;
 
@@ -132,7 +129,7 @@ export function ChatPane({ tab, onConversation }: { tab: WebChatTab; onConversat
       ) : shown.length > 0 ? (
         <MessageList messages={shown} providerNames={providerNames} canRegenerate={!busy && !!model} onRegenerate={() => void send("", true)} />
       ) : model ? (
-        <Welcome onPick={(text) => useChat.getState().setDraft(tab.id, text)} />
+        <Welcome />
       ) : (
         <ConnectFirst providers={list} onConnect={() => setProvidersOpen(true)} />
       )}
@@ -228,31 +225,18 @@ function HistoryMenu({ conversations, currentId, currentBusy, tabName, onOpen }:
 }
 
 // ------------------------------------------------------------------ empty states
-function Welcome({ onPick }: { onPick: (text: string) => void }) {
-  const latest = useQuestions((s) => latestQuestion(s));
-  const question = latest ? questionCopyText(latest, true).trim() : "";
-  const starters = question ? [question, ...STARTERS.slice(0, 2)] : STARTERS;
+/** A new chat: a quiet greeting, centred, that scrolls rather than squeezes in a short window. */
+function Welcome() {
   return (
-    <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-6 overflow-y-auto px-6 py-8 text-center">
-      <span className="zhu-chat-avatar zhu-chat-rise flex h-12 w-12 items-center justify-center rounded-2xl shadow-2" aria-hidden>
-        <Sparkles className="h-5 w-5" />
-      </span>
-      <div className="zhu-chat-rise">
-        <h1 className="zhu-display text-page text-fg">What would you like to ask?</h1>
-        <p className="mt-1.5 text-body text-fg-2">Pick a model below and write your message. The conversation stays on this computer.</p>
-      </div>
-      <div className="zhu-chat-rise flex w-full max-w-[640px] flex-col gap-2">
-        {starters.map((text, i) => (
-          <button
-            key={text}
-            type="button"
-            onClick={() => onPick(text)}
-            className="flex items-center gap-3 rounded-xl border border-border-subtle bg-surface px-4 py-3 text-left text-body text-fg transition-colors duration-fast hover:border-border hover:bg-surface-2"
-          >
-            <span className="min-w-0 flex-1 truncate">{text}</span>
-            {question && i === 0 ? <span className="shrink-0 text-caption text-accent">Latest question</span> : null}
-          </button>
-        ))}
+    <div className="flex min-h-0 flex-1 overflow-y-auto px-6 py-8">
+      <div className="m-auto flex max-w-[440px] flex-col items-center gap-5 text-center">
+        <span className="zhu-chat-avatar zhu-chat-rise flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl shadow-2" aria-hidden>
+          <Sparkles className="h-5 w-5" />
+        </span>
+        <div className="zhu-chat-rise">
+          <h1 className="zhu-display text-page text-fg">What would you like to ask?</h1>
+          <p className="mt-1.5 text-body text-fg-2">Pick a model below and write your message, or send a question from the list on the left. The conversation stays on this computer.</p>
+        </div>
       </div>
     </div>
   );

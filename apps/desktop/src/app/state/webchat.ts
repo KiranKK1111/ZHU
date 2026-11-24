@@ -28,7 +28,7 @@ interface WebChatStore {
   tabs: Record<string, TabRuntime>;
   /** The tab whose webview is on screen right now (null on other screens or behind a dialog). */
   onScreen: string | null;
-  /** The AI chats screen is open on a built-in chat tab (which has no webview). */
+  /** The chats are on screen (not Settings) and show a built-in chat tab (which has no webview). */
   nativeOnScreen: boolean;
   patch: (id: string, p: Partial<TabRuntime>) => void;
   remove: (id: string) => void;

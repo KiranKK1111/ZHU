@@ -1,12 +1,13 @@
 import { AlertCircle, ArrowDown, Check, ChevronRight, Copy, RotateCcw, Sparkles } from "lucide-react";
-import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { memo, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { toast } from "@/app/state/ui";
 import { Thumb } from "@/components/capture/Thumb";
+import { useStickToBottom } from "@/hooks/useStickToBottom";
+import { useTypewriter } from "@/hooks/useTypewriter";
 import { copyText } from "@/services/shell";
 import type { ChatMessage } from "@/types/engine";
 import { cn } from "@/utils/cn";
 import { errorMessage, formatTime } from "@/utils/format";
-import { isNearBottom } from "@/utils/scroll";
 import { Markdown } from "./Markdown";
 import { splitThinking } from "./chatText";
 import { modelLabel } from "./models";
@@ -16,47 +17,23 @@ import { modelLabel } from "./models";
  * answer as it is written; once they scroll up it stays where they put it and offers a way back.
  */
 export function MessageList({ messages, providerNames, onRegenerate, canRegenerate, children }: { messages: ChatMessage[]; providerNames: Record<string, string>; onRegenerate: () => void; canRegenerate: boolean; children?: ReactNode }) {
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const contentRef = useRef<HTMLDivElement>(null);
-  const pinned = useRef(true);
-  const [away, setAway] = useState(false);
+  // Follows the answer as it is written (gliding), until the reader scrolls up.
+  const { scrollRef, contentRef, away, scrollToBottom } = useStickToBottom({ threshold: 96 });
   const count = messages.length;
   const lastId = messages[count - 1]?.id;
+  const firstId = messages[0]?.id;
 
-  const toBottom = useCallback((smooth: boolean) => {
-    const el = scrollRef.current;
-    if (el) el.scrollTo({ top: el.scrollHeight, behavior: smooth ? "smooth" : "auto" });
-  }, []);
-
-  // Follow the content as it grows (streamed text, rendered formulas, highlighted code).
-  useEffect(() => {
-    const content = contentRef.current;
-    if (!content) return;
-    const ro = new ResizeObserver(() => {
-      if (pinned.current) toBottom(false);
-    });
-    ro.observe(content);
-    return () => ro.disconnect();
-  }, [toBottom]);
-
-  // A new message (the user's own, or a conversation that was just opened) always comes into view.
+  // A new message (the user's own) glides into view; another conversation opens at its end.
+  const before = useRef({ count, firstId });
   useLayoutEffect(() => {
-    pinned.current = true;
-    setAway(false);
-    toBottom(false);
-  }, [count, lastId, toBottom]);
-
-  const onScroll = () => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const near = isNearBottom(el, 96);
-    pinned.current = near;
-    setAway(!near);
-  };
+    const same = before.current.firstId === firstId && count > before.current.count && count - before.current.count <= 2;
+    scrollToBottom(same);
+    before.current = { count, firstId };
+  }, [count, lastId, firstId, scrollToBottom]);
 
   return (
     <div className="relative min-h-0 flex-1">
-      <div ref={scrollRef} onScroll={onScroll} className="zhu-chat-scroll absolute inset-0" tabIndex={-1}>
+      <div ref={scrollRef} className="zhu-chat-scroll absolute inset-0" tabIndex={-1}>
         <div ref={contentRef} className="mx-auto flex w-full max-w-[820px] flex-col gap-5 px-5 pb-6 pt-6" role="log" aria-label="Conversation" aria-live="polite" aria-relevant="additions">
           {messages.map((m, i) =>
             m.role === "user" ? (
@@ -71,11 +48,7 @@ export function MessageList({ messages, providerNames, onRegenerate, canRegenera
       {away ? (
         <button
           type="button"
-          onClick={() => {
-            pinned.current = true;
-            setAway(false);
-            toBottom(true);
-          }}
+          onClick={() => scrollToBottom(true)}
           className="zhu-chat-rise absolute bottom-3 left-1/2 inline-flex h-8 -translate-x-1/2 items-center gap-1.5 rounded-full border border-border bg-surface-2 px-3 text-secondary text-fg shadow-2 transition-colors duration-fast hover:bg-surface-3"
         >
           <ArrowDown className="h-3.5 w-3.5" aria-hidden />
@@ -107,7 +80,10 @@ const UserBubble = memo(function UserBubble({ message }: { message: ChatMessage 
 
 const AssistantBubble = memo(function AssistantBubble({ message, providerName, onRegenerate }: { message: ChatMessage; providerName: string; onRegenerate?: () => void }) {
   const streaming = message.status === "streaming";
-  const { thinking, open, answer } = splitThinking(message.content);
+  const { thinking, open, answer: full } = splitThinking(message.content);
+  // The answer is typed out at an even pace (the thinking is folded away, so it is not typed).
+  const answer = useTypewriter(full, streaming);
+  const typing = answer.length < full.length;
   const waiting = streaming && !answer && !thinking;
   return (
     <div className="zhu-chat-rise group flex items-start gap-3">
@@ -119,7 +95,7 @@ const AssistantBubble = memo(function AssistantBubble({ message, providerName, o
           <span className="truncate font-medium text-fg-2">{message.model ? modelLabel(message.model) : "Assistant"}</span>
           {providerName ? <span className="shrink-0">{providerName}</span> : null}
         </div>
-        <div className="zhu-bubble-assistant max-w-full px-4 py-3" aria-busy={streaming}>
+        <div className="zhu-bubble-assistant max-w-full px-4 py-3" aria-busy={streaming || typing}>
           {thinking !== null ? <ThinkingBlock text={thinking} open={open} /> : null}
           {waiting ? (
             <span className="zhu-typing" role="status" aria-label="Writing an answer">
@@ -128,9 +104,9 @@ const AssistantBubble = memo(function AssistantBubble({ message, providerName, o
               <i />
             </span>
           ) : null}
-          {answer ? <Markdown text={answer} streaming={streaming} /> : null}
-          {message.status === "cancelled" ? <p className={cn("text-caption text-fg-3", (answer || thinking) && "mt-2")}>Stopped.</p> : null}
-          {message.status === "failed" ? (
+          {answer ? <Markdown text={answer} streaming={streaming || typing} /> : null}
+          {message.status === "cancelled" && !typing ? <p className={cn("text-caption text-fg-3", (answer || thinking) && "mt-2")}>Stopped.</p> : null}
+          {message.status === "failed" && !typing ? (
             <div role="alert" className={cn("flex items-start gap-2 rounded-md bg-danger-soft px-3 py-2 text-secondary text-danger", (answer || thinking) && "mt-3")}>
               <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
               <span className="selectable">
@@ -141,9 +117,9 @@ const AssistantBubble = memo(function AssistantBubble({ message, providerName, o
             </div>
           ) : null}
         </div>
-        {!streaming ? (
+        {!streaming && !typing ? (
           <div className={cn("flex h-6 items-center gap-0.5 pl-1 transition-opacity duration-fast", onRegenerate ? "opacity-100" : "opacity-0 focus-within:opacity-100 group-hover:opacity-100")}>
-            {answer ? <CopyButton text={answer} label="Copy answer" /> : null}
+            {full ? <CopyButton text={full} label="Copy answer" /> : null}
             {onRegenerate ? (
               <button type="button" onClick={onRegenerate} className="inline-flex h-6 items-center gap-1.5 rounded-sm px-1.5 text-caption text-fg-3 transition-colors duration-fast hover:bg-hover hover:text-fg">
                 <RotateCcw className="h-3.5 w-3.5" aria-hidden />

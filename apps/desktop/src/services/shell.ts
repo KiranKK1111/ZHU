@@ -56,7 +56,6 @@ export const shell = {
   webchatShow: (id: string, bounds: WebChatBounds) => call<void>("webchat_show", { id, bounds }),
   webchatHide: () => call<void>("webchat_hide"),
   webchatClose: (id: string) => call<void>("webchat_close", { id }),
-  webchatNavigate: (id: string, action: "back" | "forward" | "reload" | "goto", url?: string) => call<void>("webchat_navigate", { id, action, url: url ?? null }),
   webchatTabs: () => call<WebChatTabSnapshot[]>("webchat_tabs"),
   webchatClearData: () => call<void>("webchat_clear_data"),
   webchatDeliver: (id: string, payload: WebChatDeliverPayload) => call<WebChatDeliverResult>("webchat_deliver", { id, payload }),

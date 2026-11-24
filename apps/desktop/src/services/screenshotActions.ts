@@ -1,44 +1,41 @@
 /**
- * What can be done with screenshots from the side panel: put them into the chat the user is
- * looking at, copy, delete. Shared by the buttons and by drag and drop.
+ * What can be done with screenshots from the side panel: put them into the chat tab that is open,
+ * copy, delete. Shared by the buttons and by drag and drop.
  */
 import { useChat } from "@/app/state/chat";
-import { useComposer } from "@/app/state/composer";
 import { currentPrefs } from "@/app/state/prefs";
-import { toast, useNav } from "@/app/state/ui";
+import { toast } from "@/app/state/ui";
 import { isNativeChat } from "@/features/webchat/services";
+import { chatTabsOrCustom } from "@/features/webchat/tabs";
 import { api } from "@/services/engine";
 import { errorMessage } from "@/utils/format";
 import { sendScreenshotsToTab } from "./webchatDelivery";
 
-export type ChatTarget = { kind: "home" } | { kind: "chat"; tabId: string; name: string } | { kind: "website"; tabId: string; name: string };
+export type ChatTarget = { kind: "chat"; tabId: string; name: string } | { kind: "website"; tabId: string; name: string } | { kind: "new" };
 
-/** Where "Add to chat" goes: the chat tab that is open on the AI chats screen, otherwise the ask box on Home. */
+/** Where "Add to chat" goes: the chat tab that is shown, or a new Custom chat when no tab is open. */
 export function currentChatTarget(): ChatTarget {
-  if (useNav.getState().route !== "webchats") return { kind: "home" };
   const p = currentPrefs();
   const tab = p.webChatTabs.find((t) => t.id === p.webChatActive) ?? p.webChatTabs[0];
-  if (!tab) return { kind: "home" };
+  if (!tab) return { kind: "new" };
   return isNativeChat(tab) ? { kind: "chat", tabId: tab.id, name: tab.name } : { kind: "website", tabId: tab.id, name: tab.name };
 }
 
 export function chatTargetLabel(t: ChatTarget): string {
-  return t.kind === "home" ? "the ask box on Home" : t.name;
+  return t.kind === "new" ? "a new Custom chat" : t.name;
 }
 
 /** Put screenshots into a message box. Nothing is sent to a model until the user presses Send there. */
 export function addScreenshotsTo(target: ChatTarget, ids: string[]): void {
   if (!ids.length) return;
   const what = ids.length === 1 ? "Screenshot" : `${ids.length} screenshots`;
-  if (target.kind === "chat") {
-    useChat.getState().attach(target.tabId, ids);
-    toast.success(`${what} added to ${target.name}`);
-  } else if (target.kind === "website") {
+  if (target.kind === "website") {
     void sendScreenshotsToTab(target.tabId, ids);
-  } else {
-    useComposer.getState().attach(ids);
-    toast.success(`${what} added to the ask box`, useNav.getState().route === "home" ? undefined : "It is waiting on Home.");
+    return;
   }
+  const tab = target.kind === "chat" ? { id: target.tabId, name: target.name } : chatTabsOrCustom()[0];
+  useChat.getState().attach(tab.id, ids);
+  toast.success(`${what} added to ${tab.name}`);
 }
 
 export async function copyScreenshot(id: string): Promise<void> {

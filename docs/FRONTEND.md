@@ -1,6 +1,6 @@
 # Front End
 
-React 18 + TypeScript + Vite 6 + Tailwind 3.4 (Node 18 compatible), with Radix primitives, Zustand, TanStack Query and TanStack Virtual. There is one bundle for three windows; each window's root is lazy-loaded based on the Tauri window label.
+React 18 + TypeScript + Vite 6 + Tailwind 3.4 (Node 18 compatible), with Radix primitives, Zustand, TanStack Query and TanStack Virtual. There is one bundle for two windows; each window's root is lazy-loaded based on the Tauri window label.
 
 ## Component hierarchy
 
@@ -9,22 +9,23 @@ main.tsx ─ picks the root by window label (main | bubble: the floating icon sh
 ├── MainApp ── AppProviders (React Query, prefs/theme, toasts) ── EngineGate (starting / failed / ready)
 │   ├── ModelSetup                  first-run, one-time model download (shown only while no model is installed)
 │   └── AppShell
-│       ├── TitleBar                drag region · session name · ListeningControl (start, with a menu of what to listen to · live state · pause · stop · new session) · OpacityButton · HideFromBarsButton · WindowControls
-│       ├── Sidebar                 four destinations; icons only in a narrow window
-│       └── <Screen>                lazy: Home · AI chats · History · Settings
-│             Home       → QuestionsPane (QuestionCard list, newest first; optional TranscriptView, its height a SplitHandle) · SplitHandle · AnswerPanel
-│                          · AnswerPanel (model picker, Auto-answer, answers as a chat, ask box with screenshot button)
-│             AI chats   → WebChatScreen: tab strip, toolbar, WebChatOptions; the page is a native child webview placed over a placeholder
-│             History    → sessions: open, rename, save as a file, delete
-│             Settings   → one page: ModelsSection (connect with a key) · answer instructions · WebChatOptions · Listening · General (+ shortcuts) · Your data
-└── OverlayApp                      frozen screenshot · drag-select · size readout · Enter / Esc
+│       ├── TitleBar                drag region · ListeningControl (start, with a menu of what to listen to · live state · pause · stop) · OpacityButton · HideFromBarsButton · side-panel button · Settings gear (pressed while Settings is open; again: back to the chats) · WindowControls
+│       ├── <Screen>                lazy (app/routing/routes.ts): "webchats" (label Chats, the start) · "settings"
+│       │     Chats      → WebChatScreen (features/webchat) inside QuestionsColumn (components/questions: QuestionCard list, newest first;
+│       │                  optional TranscriptView, its height a SplitHandle; a SplitHandle for the column's width; collapsible)
+│       │                  · tab strip (+ menu → openChatTab in features/webchat/tabs.ts), WebChatOptions
+│       │                  · a Custom chat tab → ChatPane (features/chat: messages, model picker, New chat, earlier conversations)
+│       │                  · a website tab → a native child webview placed over a placeholder
+│       │     Settings   → one page: ModelsSection (connect with a key) · answer instructions · WebChatOptions · Listening · App (+ shortcuts) · Your data; Esc goes back to the chats
+│       └── SidePanel               ScreenshotsSection (capture, Add to …, drag) · ResumeSection (resumes and the job)
+└── BubbleApp                       the floating icon
 ```
 
 ## State and data flow
 
 * **Engine connection** (`hooks/useEngineConnection`): `engine_info` from the shell plus the `zhu://engine` event. Every window opens its own WebSocket (`services/eventStream`) with seq dedupe, replay from `last_seq`, and cache invalidation on instance change or gap.
-* **Asking a model** (`services/ask`): one path for the Answer button, the ask box, and Auto-answer. It picks the selected connected model, adds the user's answer instructions, and submits to the engine.
-* **Event dispatch** (`services/dispatch`): batched per animation frame (a hidden window flushes in a microtask) into separate Zustand stores. `transcript` is a bounded ring keyed by segment, where a newer revision replaces an older one. `questions` holds revision-guarded upserts. The other stores are `session`, `composer` (drafts per provider), `ui` (navigation and toasts), and `prefs` (theme, density, sidebar, window opacity, hotkeys, Enter-to-send; synced across windows through `zhu://prefs`).
+* **Questions into the chats** (`services/webchatDelivery`): **Send to chat** on a card, and each detected question while automatic delivery is on, put the question (with the user's answer instructions) into the message boxes of the target tabs; nothing is submitted. With no chat tab open, `chatTabsOrCustom` (`features/webchat/tabs.ts`) opens a Custom chat tab first. Screenshots from the side panel go the same way (`services/screenshotActions`): to the tab that is shown, or to a new Custom chat. Answers from ZHU's own models come from the Custom chat (CHAT.md).
+* **Event dispatch** (`services/dispatch`): batched per animation frame (a hidden window flushes in a microtask) into separate Zustand stores. `transcript` is a bounded ring keyed by segment, where a newer revision replaces an older one. `questions` holds revision-guarded upserts. Answers arrive as `chat.delta` / `chat.completed` / `chat.error` for the Custom chat; the engine's `provider.started` / `delta` / `completed` / `error` events (from `submit`) are not used by the app. The other stores are `session` (the session that listening records into, kept behind the scenes), `chat` (Custom chat conversations, drafts and attachments per tab), `webchat` (chat tab state), `ui` (navigation and toasts), and `prefs` (theme, window opacity, hotkeys, close-to-tray, the questions column's layout, the chat tabs; synced across windows through `zhu://prefs`).
 * **REST** (`services/engine`): one typed function per engine route. Images are fetched with the auth header as blobs and revoked on unmount.
 * **Shell** (`services/shell`): typed wrappers for the Rust commands. Every wrapper fails gracefully outside Tauri.
 * **Opacity** (`app/state/opacity`): the everyday level is a preference; the hidden level starts at 80% on the eye button. A ZHU that closed hidden opens hidden, and the page takes the level it had from the shell (`hidden_opacity`). No opacity is applied until the shell has said whether ZHU is hidden, so a page loading in a hidden ZHU never makes it opaque for a moment.

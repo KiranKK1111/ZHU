@@ -3,7 +3,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-libra
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ListeningStatus } from "@/types/engine";
 
-const actions = { start: vi.fn(async () => undefined), pause: vi.fn(async () => undefined), resume: vi.fn(async () => undefined), stop: vi.fn(async () => undefined), newSession: vi.fn(async () => undefined) };
+const actions = { start: vi.fn(async () => undefined), pause: vi.fn(async () => undefined), resume: vi.fn(async () => undefined), stop: vi.fn(async () => undefined) };
 vi.mock("@/hooks/useActions", () => ({ useListeningActions: () => actions }));
 let setupRequired = false;
 let audio = { system_enabled: true, microphone_enabled: true };
@@ -53,10 +53,10 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("listening in the title bar", () => {
-  it("offers New session while nothing is recorded", async () => {
+  it("has no session controls: sessions are not managed in the title bar", async () => {
     show();
-    fireEvent.click(await screen.findByRole("button", { name: /New session/ }));
-    expect(actions.newSession).toHaveBeenCalledTimes(1);
+    await screen.findByRole("button", { name: /Start listening/ });
+    expect(screen.queryByRole("button", { name: /New session/ })).toBeNull();
   });
 
   it("asks what to listen to when Start listening is pressed: three options of one size", async () => {

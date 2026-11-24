@@ -1,11 +1,12 @@
 import { ArrowDown, Check, Pencil, X } from "lucide-react";
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 import type { TranscriptItem } from "@/app/state/transcript";
 import { Button, IconButton } from "@/components/primitives/Button";
 import { Textarea } from "@/components/primitives/Input";
+import { useStickToBottom } from "@/hooks/useStickToBottom";
 import { cn } from "@/utils/cn";
 import { formatClock } from "@/utils/format";
-import { isNearBottom, onNewContent } from "@/utils/scroll";
+import { NEAR_BOTTOM_PX } from "@/utils/scroll";
 import { highlightMatches, markUncertainWords } from "@/utils/text";
 
 const UNCERTAIN_P = 0.45;
@@ -24,53 +25,29 @@ export interface TranscriptViewProps {
  * user scrolls up, their position is kept and "Jump to live" appears (UI prompt §10).
  */
 export function TranscriptView({ items, query = "", compact, onCorrect, className, emptyState }: TranscriptViewProps) {
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const nearBottomRef = useRef(true);
-  const [showJump, setShowJump] = useState(false);
-  const lastKey = items.length ? `${items[items.length - 1].segment_id}:${items[items.length - 1].revision}:${items.length}` : "";
-
-  const onScroll = useCallback(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const near = isNearBottom(el);
-    nearBottomRef.current = near;
-    if (near) setShowJump(false);
-  }, []);
-
-  useLayoutEffect(() => {
-    const el = scrollRef.current;
-    if (!el || !lastKey) return;
-    if (onNewContent(nearBottomRef.current) === "follow") {
-      el.scrollTop = el.scrollHeight;
-    } else {
-      setShowJump(true);
-    }
-  }, [lastKey]);
-
-  const jump = () => {
-    const el = scrollRef.current;
-    if (!el) return;
-    el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
-    nearBottomRef.current = true;
-    setShowJump(false);
-  };
+  // Glides to new speech while the reader is at the end; scrolled up, they stay put and
+  // "Jump to live" appears once something new has been said.
+  const { scrollRef, contentRef, away, missed, scrollToBottom } = useStickToBottom({ threshold: NEAR_BOTTOM_PX });
 
   return (
     <div className={cn("relative min-h-0", className)}>
-      <div ref={scrollRef} onScroll={onScroll} className="selectable h-full overflow-y-auto overscroll-contain" aria-label="Live transcript" role="log" aria-live="off">
-        {items.length === 0 ? (
-          emptyState ?? null
-        ) : (
-          <ol className={cn("flex flex-col", compact ? "gap-1.5 px-3 py-2" : "gap-3 px-1 py-2")}>
-            {items.map((it) => (
-              <TranscriptLine key={it.segment_id} item={it} query={query} compact={compact} onCorrect={onCorrect} />
-            ))}
-          </ol>
-        )}
+      <div ref={scrollRef} className="zhu-follow-scroll selectable h-full" aria-label="Live transcript" role="log" aria-live="off">
+        {/* Empty, it fills the area so its message sits in the middle. */}
+        <div ref={contentRef} className={cn(items.length === 0 && "h-full")}>
+          {items.length === 0 ? (
+            emptyState ?? null
+          ) : (
+            <ol className={cn("flex flex-col", compact ? "gap-1.5 px-3 py-2" : "gap-3 px-1 py-2")}>
+              {items.map((it) => (
+                <TranscriptLine key={it.segment_id} item={it} query={query} compact={compact} onCorrect={onCorrect} />
+              ))}
+            </ol>
+          )}
+        </div>
       </div>
-      {showJump ? (
+      {away && missed ? (
         <div className="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center">
-          <Button size="sm" variant="primary" className="pointer-events-auto shadow-2" icon={<ArrowDown className="h-3.5 w-3.5" />} onClick={jump}>
+          <Button size="sm" variant="primary" className="zhu-appear pointer-events-auto shadow-2" icon={<ArrowDown className="h-3.5 w-3.5" />} onClick={() => scrollToBottom(true)}>
             Jump to live
           </Button>
         </div>

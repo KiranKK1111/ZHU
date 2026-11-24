@@ -29,6 +29,14 @@ dependencies = [
   "huggingface_hub>=0.26",
   "anthropic>=2.0",
   "pypdf>=5",  # text of an uploaded résumé (PDF)
+  # Text recognition built into Windows, for a résumé that is a scan or a photo (zhu_engine/ocr.py).
+  "winrt-runtime>=3.2; sys_platform == 'win32'",
+  "winrt-Windows.Foundation>=3.2; sys_platform == 'win32'",
+  "winrt-Windows.Foundation.Collections>=3.2; sys_platform == 'win32'",
+  "winrt-Windows.Globalization>=3.2; sys_platform == 'win32'",
+  "winrt-Windows.Graphics.Imaging>=3.2; sys_platform == 'win32'",
+  "winrt-Windows.Media.Ocr>=3.2; sys_platform == 'win32'",
+  "winrt-Windows.Storage.Streams>=3.2; sys_platform == 'win32'",
 ]
 
 [project.optional-dependencies]

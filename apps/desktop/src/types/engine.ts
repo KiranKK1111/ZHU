@@ -350,17 +350,82 @@ export interface ChatMessage {
   completed_at: number | null;
 }
 
-/** The user's résumé as the engine keeps it: the text of the uploaded file, not the file. */
+/** One of the user's resumes as the engine keeps it: the text read from the uploaded file, not the file. */
 export interface ResumeInfo {
+  id: string;
+  /** The user's name for it ("Backend roles"); the file name without its extension at first. */
+  label: string;
   file_name: string;
   uploaded_at: number | null;
-  /** While on, the text is given to the model with every question. */
-  enabled: boolean;
+  /** The text was corrected or added to by the user. */
+  edited_at: number | null;
+  /** The text read from the file is kept and can be brought back. */
+  can_revert: boolean;
   /** The file was longer than the engine keeps; the end was cut. */
   truncated: boolean;
+  /** The text was recognized in a picture (a scan or a photo): names and numbers are worth a check. */
+  ocr: boolean;
   characters: number;
   words: number;
   text: string;
+  /** The file itself is kept and can be shown (not for resumes uploaded before files were kept). */
+  has_file: boolean;
+  /** What the file is ("application/pdf", "image/png", …), from its name. */
+  media_type: string | null;
+  /** The short profile models get with every question, made from the text once. */
+  profile: Condensed;
+}
+
+/**
+ * The short form of the resume (or the job) that goes to models, made once by one model call.
+ * ready: made; making: under way; failed: will be tried again (or now, on request); waiting: made
+ * with the next Custom chat answer, or once a model is connected; short: small already, goes as it is.
+ */
+export interface Condensed {
+  state: "ready" | "making" | "failed" | "waiting" | "short";
+  text: string | null;
+  words: number;
+  model: string | null;
+}
+
+/** The job the user is applying for: a title and the job description. */
+export interface JobInfo {
+  title: string;
+  text: string;
+  /** While on, the job goes with every question, next to the resume. */
+  enabled: boolean;
+  /** The short brief models get, made from the description once. */
+  brief: Condensed;
+  truncated: boolean;
+  ocr: boolean;
+  /** The file it was read from; null when pasted. */
+  source: string | null;
+  characters: number;
+  words: number;
+  updated_at: number | null;
+}
+
+export interface ResumesState {
+  items: ResumeInfo[];
+  /** The resume given to models and chat sites. */
+  active_id: string | null;
+  /** While on, the resume in use goes with every question. */
+  enabled: boolean;
+  job: JobInfo | null;
+  limits: { resume_chars: number; job_chars: number; resumes: number };
+}
+
+/** What ZHU adds to the first message of a new conversation on a chat website. */
+export interface ChatContext {
+  /** In the file name and the first line of the text: tells the page helper it is already there. */
+  marker: string;
+  file_name: string;
+  /** The resume and the job with the instruction, written as the user. */
+  text: string;
+  /** The line put in the message when the text goes as an attached file. */
+  note: string;
+  /** Put between the text and the question when the text goes in the message itself. */
+  question_heading: string;
 }
 
 export interface ChatSendResult {

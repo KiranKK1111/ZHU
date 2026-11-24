@@ -13,10 +13,11 @@ import { useSession } from "@/app/state/session";
 import { toast } from "@/app/state/ui";
 import { useWebChat } from "@/app/state/webchat";
 import { isNativeChat, withInstructions, type WebChatTab } from "@/features/webchat/services";
-import { fetchBlob } from "@/services/engine";
+import { chatTabsOrCustom } from "@/features/webchat/tabs";
+import { api, fetchBlob } from "@/services/engine";
 import { inTauri, shell } from "@/services/shell";
-import type { Question, Screenshot } from "@/types/engine";
-import type { WebChatDeliverResult, WebChatImage } from "@/types/shell";
+import type { ChatContext, Question, Screenshot } from "@/types/engine";
+import type { WebChatContext, WebChatDeliverResult, WebChatImage } from "@/types/shell";
 import { errorMessage } from "@/utils/format";
 import { questionCopyText } from "@/utils/questionPresentation";
 
@@ -27,6 +28,11 @@ export interface DeliveryRequest {
   force?: boolean;
   /** Explicit targets; otherwise the "all tabs / active tab" preference decides. */
   tabIds?: string[];
+  /**
+   * The resume: "new-chat" adds it when the question goes into a new chat (and it is not already
+   * there). Website tabs only: the Custom chat gives it to the model with every message by itself.
+   */
+  resume?: "new-chat";
 }
 
 export interface DeliveryOutcome {
@@ -75,24 +81,35 @@ export function targetTabs(tabIds?: string[]): WebChatTab[] {
   return p.webChatTabs;
 }
 
-/** Human-readable result of one delivery (pure; unit-tested). */
-export function describeResult(r: WebChatDeliverResult, tabName: string): { ok: boolean; message: string } {
+/**
+ * Human-readable result of one delivery (pure; unit-tested). `question` is false when only the
+ * resume was asked for: the text in the box is then its note, not a question.
+ */
+export function describeResult(r: WebChatDeliverResult, tabName: string, question = true): { ok: boolean; message: string } {
   if (r.reason === "sign_in") return { ok: false, message: `${tabName} is showing its sign-in page. Sign in there once; nothing was inserted.` };
   if (r.reason === "no_message_box") return { ok: false, message: `No message box found in ${tabName}. Sign in or open a chat there first.` };
   if (r.reason === "timeout") return { ok: false, message: `${tabName} did not respond in time.` };
   if (r.reason) return { ok: false, message: `${tabName}: ${r.message ?? r.reason}` };
   const parts: string[] = [];
-  if (r.text === "replace" || r.text === "append") parts.push(r.text === "append" ? "Question added below your draft" : "Question ready");
-  else if (r.text === "already_there") parts.push("Question already in the box");
-  else if (r.text === "failed") parts.push("The question could not be inserted");
+  if (r.context === "file") parts.push(r.context_confirmed ? "resume attached" : "resume sent to the page (attachment not confirmed)");
+  else if (r.context === "text") parts.push("resume added to the message");
+  else if (r.context === "failed") parts.push("the resume could not be added");
+  else if (!question && (r.context === "already_there" || r.context === "skipped")) parts.push("the resume is already in this draft");
+  if (question) {
+    if (r.text === "replace" || r.text === "append") parts.push(r.text === "append" ? "question added below your draft" : "question ready");
+    else if (r.text === "already_there") parts.push("question already in the box");
+    else if (r.text === "failed") parts.push("the question could not be inserted");
+  } else if (r.text === "failed" && r.context !== "failed") {
+    parts.push("the note about the resume could not be typed into the box");
+  }
   const n = r.images ?? 0;
   if (n > 0) {
     const what = n === 1 ? "screenshot" : `${n} screenshots`;
     if (r.images_method === "none") parts.push(`this page did not accept the ${what} (some sites allow attachments only after sign-in)`);
     else parts.push(r.images_confirmed ? `${what} attached` : `${what} sent to the page (attachment not confirmed)`);
   }
-  if (!parts.length) parts.push("Nothing new to add");
-  const ok = r.ok && r.text !== "failed" && !(n > 0 && r.images_method === "none");
+  if (!parts.length) parts.push("nothing new to add");
+  const ok = r.ok && r.text !== "failed" && r.context !== "failed" && !(n > 0 && r.images_method === "none");
   const joined = parts.join("; ");
   return { ok, message: `${joined.charAt(0).toUpperCase()}${joined.slice(1)}${ok ? " — review and press Send" : ""}` };
 }
@@ -141,7 +158,43 @@ function deliverToNativeChat(tab: WebChatTab, text: string | null, screenshotIds
   return { tab, ok: true, message: `${parts.charAt(0).toUpperCase()}${parts.slice(1)} — review and press Send` };
 }
 
-async function deliverOne(tab: WebChatTab, text: string | null, images: WebChatImage[], force: boolean, screenshotIds: string[]): Promise<DeliveryOutcome> {
+/** The path of a tab's start page ("/new", "/app"), which is a new chat on any site. */
+function homePath(url: string): string {
+  try {
+    return new URL(url).pathname || "/";
+  } catch {
+    return "/";
+  }
+}
+
+/** The resume as the page helper takes it, for one tab. */
+export function contextFor(tab: WebChatTab, ctx: ChatContext, mode: "file" | "text"): WebChatContext {
+  return { ...ctx, mode, force: false, home: homePath(tab.url) };
+}
+
+/**
+ * What to add to the chats now: the resume in use (and the job), if any. A chat website gets it once
+ * per new chat, as a file (in the message where a site takes no files): it then has it for the
+ * whole chat, and it is not sent again with each question.
+ */
+async function resumeContext(req: DeliveryRequest): Promise<{ ctx: ChatContext; mode: "file" | "text" } | null> {
+  if (!req.resume) return null;
+  try {
+    const ctx = await api.chatContext();
+    return ctx ? { ctx, mode: "file" } : null;
+  } catch {
+    return null; // the engine is restarting: the question still goes, without the resume
+  }
+}
+
+async function deliverOne(
+  tab: WebChatTab,
+  text: string | null,
+  images: WebChatImage[],
+  force: boolean,
+  screenshotIds: string[],
+  context: { ctx: ChatContext; mode: "file" | "text" } | null,
+): Promise<DeliveryOutcome> {
   if (isNativeChat(tab)) return deliverToNativeChat(tab, text, screenshotIds);
   const store = useWebChat.getState();
   store.patch(tab.id, { delivering: true });
@@ -149,8 +202,14 @@ async function deliverOne(tab: WebChatTab, text: string | null, images: WebChatI
   try {
     // A tab the user has not opened yet in this run has no webview: create it (hidden) first.
     if (!(await ensureTabLoaded(tab))) return { tab, ok: false, message: `${tab.name} was closed.` };
-    const result = await shell.webchatDeliver(tab.id, { service: tab.service, text, images, force });
-    outcome = { tab, ...describeResult(result, tab.name) };
+    const result = await shell.webchatDeliver(tab.id, {
+      service: tab.service,
+      text,
+      images,
+      force,
+      context: context ? contextFor(tab, context.ctx, context.mode) : null,
+    });
+    outcome = { tab, ...describeResult(result, tab.name, !!text || !context) };
   } catch (err) {
     outcome = { tab, ok: false, message: `${tab.name}: ${errorMessage(err)}` };
   }
@@ -171,6 +230,7 @@ export async function deliverToChats(req: DeliveryRequest): Promise<DeliveryOutc
   const ids = req.screenshotIds ?? [];
   const tabs = targetTabs(req.tabIds);
   if (!tabs.length || (!text && !ids.length)) return [];
+  const resume = tabs.some((t) => !isNativeChat(t)) ? await resumeContext(req) : null;
   let images: WebChatImage[] = [];
   if (ids.length && tabs.some((t) => !isNativeChat(t))) {
     const loaded = await Promise.allSettled(ids.map(loadImage));
@@ -179,7 +239,7 @@ export async function deliverToChats(req: DeliveryRequest): Promise<DeliveryOutc
   }
   return Promise.all(
     tabs.map((tab) => {
-      const run = (queues.get(tab.id) ?? Promise.resolve()).then(() => deliverOne(tab, text, images, !!req.force, ids));
+      const run = (queues.get(tab.id) ?? Promise.resolve()).then(() => deliverOne(tab, text, images, !!req.force, ids, resume));
       queues.set(tab.id, run.catch(() => undefined));
       return run;
     }),
@@ -216,7 +276,7 @@ export function onQuestionEvent(q: Question, revised: boolean): void {
   if (previous === body || (revised && previous === undefined)) return;
   sentQuestions.set(q.question_id, body);
   if (sentQuestions.size > 500) sentQuestions.delete(sentQuestions.keys().next().value as string);
-  void deliverToChats({ text: withInstructions(p.instructions, body) }).then((o) => report(o, true));
+  void deliverToChats({ text: withInstructions(p.instructions, body), resume: "new-chat" }).then((o) => report(o, true));
 }
 
 export function onScreenshotEvent(s: Pick<Screenshot, "id" | "duplicate">): void {
@@ -229,13 +289,10 @@ export function onScreenshotEvent(s: Pick<Screenshot, "id" | "duplicate">): void
 
 // ------------------------------------------------------------------ manual delivery
 export async function sendQuestionToChats(q: Question): Promise<void> {
+  chatTabsOrCustom(); // with no chat tab open, a Custom chat opens for the question
   const p = currentPrefs();
-  if (!p.webChatTabs.length) {
-    toast.info("No chat tab is open", "Open one under AI chats first.");
-    return;
-  }
   sentQuestions.set(q.question_id, questionCopyText(q, true).trim());
-  report(await deliverToChats({ text: withInstructions(p.instructions, questionCopyText(q, true)) }), false);
+  report(await deliverToChats({ text: withInstructions(p.instructions, questionCopyText(q, true)), resume: "new-chat" }), false);
 }
 
 /** Add screenshots to one chat tab's draft (dropped on it, or "Add to chat" in the side panel). */
@@ -247,10 +304,7 @@ export async function sendScreenshotsToTab(tabId: string, ids: string[]): Promis
 
 export async function sendScreenshotsToChats(ids: string[]): Promise<void> {
   if (!ids.length) return;
-  if (!currentPrefs().webChatTabs.length) {
-    toast.info("No chat tab is open", "Open one under AI chats first.");
-    return;
-  }
+  chatTabsOrCustom(); // with no chat tab open, a Custom chat opens for them
   for (const id of ids) sentScreenshots.add(id);
   report(await deliverToChats({ screenshotIds: ids, force: true }), false);
 }

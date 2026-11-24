@@ -24,6 +24,10 @@ binaries += collect_dynamic_libs("onnxruntime")
 datas += copy_metadata("keyring") + copy_metadata("fastapi") + copy_metadata("anthropic") + copy_metadata("huggingface_hub")
 hiddenimports += collect_submodules("uvicorn") + collect_submodules("keyring.backends") + collect_submodules("zhu_engine")
 hiddenimports += ["pynvml", "pyaudiowpatch", "soxr", "websockets", "httptools"]
+# Windows text recognition for scanned résumés (zhu_engine/ocr.py). The bindings are imported inside
+# functions and load their native parts by name, so every module of the installed winrt packages is listed.
+hiddenimports += collect_submodules("winrt")
+binaries += collect_dynamic_libs("winrt")
 
 # CUDA 12 runtime (cuBLAS, cuDNN 9) from pip wheels.
 # The full set is 2.0 GB, which exceeds NSIS's ~2 GB data limit (makensis failed with

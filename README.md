@@ -31,7 +31,7 @@ and helps you answer it. Speech recognition runs on your own computer.
 
 In an interview or a meeting, questions come quickly and are easy to lose. ZHU keeps up with them for you.
 
-It listens to the call and to your microphone, turns the speech into text **on your computer**, and picks out the questions. Each one appears on screen, written out clearly, a moment after it is asked. From there, one click gets an answer from the AI model you chose, or ZHU can answer every question by itself.
+It listens to the call and to your microphone, turns the speech into text **on your computer**, and picks out the questions. Each one appears on screen, written out clearly, a moment after it is asked. From there, one click puts it into your chats, right next to the questions: ZHU's own Custom chat, which answers with the AI model you chose, and the chat websites you already use. While you listen, ZHU can put each question there by itself. You press Send.
 
 ```mermaid
 flowchart LR
@@ -39,8 +39,7 @@ flowchart LR
     B["Your microphone"] --> C
     C["Speech recognition<br/>on your computer"] --> D["Question detection"]
     D --> E(["Questions, as they are asked"])
-    E --> F["An AI model inside ZHU"]
-    E --> G["Custom chat"]
+    E --> G["Custom chat<br/>the AI models you connect"]
     E --> H["Chat websites<br/>ChatGPT · Claude · Gemini"]
 ```
 
@@ -51,18 +50,18 @@ Audio is never uploaded and never saved. A question leaves your computer only wh
 | | |
 |---|---|
 | **Live questions** | Every question in the conversation is collected, newest first, while the full transcript runs underneath. |
-| **Listening, one click away** | Start, pause and stop from the title bar, on every screen, with the recording time always in view. |
-| **Answers, three ways** | An AI model connected inside ZHU, ZHU's own Custom chat, or the chat websites you already use (ChatGPT, Claude, Gemini and others) opened as tabs. |
+| **Listening, one click away** | Start, pause and stop from the title bar, always in view, with the recording time. |
+| **Answers, two ways** | ZHU's own Custom chat with the AI models you connect, or the chat websites you already use (ChatGPT, Claude, Gemini and others). Both open as tabs beside the questions. |
 | **Free to start** | Two services answer without a key or an account. Google Gemini, Groq and OpenRouter have free tiers. Paid providers and local models (Ollama, LM Studio) work too. |
-| **Auto-answer** | Switch it on and each detected question is answered without a click. |
+| **Send to chat** | One click puts a question into the message boxes of your chat tabs. While you listen, ZHU can do it for every question. You review it and press Send. |
 | **Screenshots** | Capture the screen with one shortcut and send the picture with your question. ZHU keeps itself out of its own screenshots. |
 | **Knows what a model can read** | The model list marks each model: images, documents, audio, video, or text only. A screenshot is never sent to a model that cannot read it. |
-| **Your résumé** | Upload it once and questions about you are answered from it, in your voice. |
-| **Your layout** | Drag the lines between questions, answers and transcript to size them your way. ZHU remembers it. |
+| **Your resume and the job** | Upload your resume once (a document, or a scan or photo of it) and questions about you are answered from it, in your voice, by every model and on the chat websites. Correct it, keep several, and add the job you are applying for. |
+| **Your layout** | Drag the lines between the questions, the chat and the transcript to size them your way, or fold the questions away. ZHU remembers it. |
 | **Opacity** | Make ZHU see-through, from 40% to 100%: the whole window, chat tabs included. |
 | **Hide mode** | One button takes ZHU out of the taskbar, the tray, Alt+Tab and screen captures, keeps it on top of your screen, and makes it 80% see-through. Over ZHU the real pointer stands still for viewers while ZHU's own arrow moves for you. |
 | **One process** | The engine runs inside ZHU itself: one entry in Task Manager. If it ever stops, the window stays and **Restart engine** brings it back. |
-| **History** | Every session with its questions and answers, to reopen, export or delete. |
+| **Chats are kept** | Every Custom chat conversation is stored on your computer. The clock button in the chat reopens or deletes earlier ones. |
 
 ## Install
 
@@ -85,15 +84,15 @@ Audio is never uploaded and never saved. A question leaves your computer only wh
 
 ## Using ZHU
 
-ZHU has four screens: **Home**, **AI chats**, **History** and **Settings**.
+ZHU is one screen: the questions on the left, your chats beside them as tabs, and the panel for screenshots and your resume on the right. The gear in the title bar opens **Settings**; press it again, or Esc, to go back to the chats.
 
 ### 1. Choose how you want answers
 
-Either way works, and you can use both.
+Either way works, and you can use both. Open a chat with the **+** on the tab strip (with no tab open yet, the chat area lists them).
 
-* **An AI model inside ZHU.** Open **Settings → Answers → Manage models**. For a free start, press **Get a free key** next to Google Gemini, Groq or OpenRouter, paste the key and press **Connect**. ZHU checks the key and picks a model.
-* **No key at all.** Open **AI chats → + → Custom chat** and press **Start without a key**. Two free public services answer right away. Their providers may log what you send, so keep sensitive text for a provider you have a key for.
-* **The chat websites you already use.** Open **AI chats → +** and pick ChatGPT, Claude, Gemini or another site. Sign in once, as in a browser.
+* **Custom chat with an AI model.** Press the gear, then **Answers → Manage models**. For a free start, press **Get a free key** next to Google Gemini, Groq or OpenRouter, paste the key and press **Connect**. ZHU checks the key and picks a model. Then open a **Custom chat** tab.
+* **No key at all.** Open a **Custom chat** tab and press **Start without a key**. Two free public services answer right away. Their providers may log what you send, so keep sensitive text for a provider you have a key for.
+* **The chat websites you already use.** Pick ChatGPT, Claude, Gemini or another site from the **+** menu. Sign in once, as in a browser.
 
 <p align="center">
   <img src="docs/images/custom-chat.png" width="92%" alt="Custom chat inside ZHU: a formatted answer with highlighted code, the Ask anything box with the model chip, and Start listening in the title bar" />
@@ -101,7 +100,7 @@ Either way works, and you can use both.
 
 ### 2. Start listening
 
-Press **Start listening** in the title bar; it is there on every screen. ZHU listens to the call (your computer's sound) and to your microphone, or to only one of them: Start listening asks which (system audio and microphone, system audio only, or microphone only). While it listens, the title bar shows **Live** with the time, and **Pause** and **Stop** next to it; the tray icon says whether ZHU is recording too. The **+** next to Start listening opens a fresh session.
+Press **Start listening** in the title bar; it is always there, in Settings too. ZHU listens to the call (your computer's sound) and to your microphone, or to only one of them: Start listening asks which (system audio and microphone, system audio only, or microphone only). While it listens, the title bar shows **Live** with the time, and **Pause** and **Stop** next to it; the tray icon says whether ZHU is recording too. To start with an empty page, use **Clear** on the questions and on the transcript.
 
 <p align="center">
   <img src="docs/images/title-bar.png" width="640" alt="The title bar while listening: Live with the recording time, Pause and Stop, then the opacity control opened with its slider, the eye button for hide mode, and the panel button" />
@@ -109,15 +108,14 @@ Press **Start listening** in the title bar; it is there on every screen. ZHU lis
 
 ### 3. Read the questions, get the answers
 
-* **Questions** (left) lists every question that is asked. **Answer** asks your AI model, **Copy** copies the question, and the **⋯** menu corrects the wording or removes something that was not a question.
-* **Answers** (right) shows the replies like a chat, with formatted text, tables, code and formulas.
-* **Auto-answer** (top of Answers) answers each question as soon as it is detected.
-* The box at the bottom (**Ask anything**) takes your own question. The model chip inside it changes the model. The same model answers on Home and in Custom chat.
-* **Make room** where you need it: drag the line between Questions and Answers, or the line above the transcript. Double-click a line to go back to the original sizes.
+* **Questions** (left) lists every question that is asked. **Send to chat** puts it into the message boxes of your chat tabs, where you review it and press Send; with no chat tab open, it opens a Custom chat with the question in it. **Copy** copies the question, and the **⋯** menu corrects the wording or removes something that was not a question.
+* While you listen, each detected question is also put into the chat tabs by itself (switch it off with the options button at the right of the tab strip).
+* **Custom chat** (right) answers like a chat, with formatted text, tables, code and formulas. The model chip in its message box changes the model. **New chat** starts another conversation, and the clock button reopens earlier ones.
+* **Make room** where you need it: drag the line between the questions and the chat, or the line above the transcript. Double-click a line to go back to the original sizes. The button at the right of the Questions header folds the column away.
 
 ### 4. Add what is on your screen
 
-Press **Ctrl+Shift+A**, or the screen button in the ask box, to capture the whole screen. The picture is attached to your next question, and it also lands in the **Screenshots** panel on the right, from where you can drag it into any message box.
+Press **Ctrl+Shift+A**, or the capture button at the top of the **Screenshots** panel on the right, to capture the whole screen. The picture lands in that panel and is attached to the drafts in your chat tabs. From the panel you can drag it into any message box, or use **Add to …** on it: it goes to the chat tab that is shown, or to a new Custom chat when no tab is open.
 
 The model list shows what each model can read, so pick one with the image mark when you want to send a screenshot.
 
@@ -127,7 +125,7 @@ The model list shows what each model can read, so pick one with the image mark w
 
 ### 5. Let it answer as you
 
-In the panel on the right, upload **your résumé** (PDF, Word or text). While it is switched on, questions about you ("tell me about yourself", "what was your biggest project?") are answered from it. Under **Settings → Answers → How answers should sound** you can add a sentence that goes with every question, for example *"Answer briefly, the way I would say it in an interview."*
+In the panel on the right, upload **your resume** (PDF, Word, text, or a picture of the page) and, if you like, **the job** you are applying for. While they are switched on, questions about you ("tell me about yourself", "what was your biggest project?") are answered from them, by the AI models and on the chat websites (the resume goes with the first question of each new chat). Under **Settings → Answers → How answers should sound** you can add a sentence that goes with every question, for example *"Answer briefly, the way I would say it in an interview."*
 
 ### 6. Keep it in view, or out of the way
 
@@ -144,7 +142,7 @@ These work from any app. Change them under **Settings → App → Edit shortcuts
 | `Ctrl` `Shift` `A` | Screenshot of the whole screen |
 | `Ctrl` `Shift` `C` | Copy the latest question |
 
-The [user manual](docs/USER_MANUAL.md) covers every screen in detail.
+The [user manual](docs/USER_MANUAL.md) covers everything in detail.
 
 ## Run from source
 
@@ -196,7 +194,7 @@ Push to `main` and GitHub does the rest: it works out the next version from your
 ## Privacy
 
 * **Speech stays local.** Transcription and question detection run on your computer. Audio is held in memory only: it is never written to disk and never uploaded.
-* **You decide what is sent.** An AI model receives a question when you press **Answer** or **Send**, or automatically while Auto-answer is on. A screenshot is sent only when it is attached and you send.
+* **You decide what is sent.** An AI model receives a question only when you press **Send** in the Custom chat. A screenshot is sent only when it is attached and you send. A chat website can see its message box before you press Send, so a question or screenshot placed in its draft reaches that site (see [Chat websites](docs/WEB_CHATS.md)).
 * **Keys are kept by Windows.** API keys go into Windows Credential Manager, not into files or the database.
 * **Your data is yours.** Sessions, screenshots and models live in `%LOCALAPPDATA%\app.zhu.desktop\data`. **Settings → Your data → Delete everything** removes them.
 * **No telemetry.** ZHU reports nothing about you or your use of it.

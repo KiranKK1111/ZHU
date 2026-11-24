@@ -65,11 +65,16 @@ fn out_of_captures() -> bool {
 /// Tell Windows, for every window ZHU has, whether captures may include it.
 fn protect(app: &AppHandle) {
     let excluded = out_of_captures();
-    for label in LABELS {
-        if let Some(w) = app.get_webview_window(label) {
-            let _ = w.set_content_protected(excluded);
-        }
+    for w in windows(app) {
+        let _ = w.set_content_protected(excluded);
     }
+}
+
+/// ZHU's windows that are open now. Looked up as windows, not "webview windows": with a chat tab
+/// open, the main window also holds that website's page, and Tauri then no longer counts it as a
+/// webview window (see `crate::main_window`).
+fn windows(app: &AppHandle) -> impl Iterator<Item = tauri::Window> + '_ {
+    LABELS.into_iter().filter_map(|label| app.get_window(label))
 }
 
 /// Leave ZHU's windows out of a screenshot ZHU is about to take, and end that again. While ZHU is
@@ -87,7 +92,7 @@ pub fn install(window: &WebviewWindow) {
         let _ = window.set_content_protected(true);
     }
     if is_hidden() {
-        imp::apply(window, true);
+        imp::apply(&window.as_ref().window(), true);
     }
 }
 
@@ -110,13 +115,11 @@ pub fn hide_at_start(app: &AppHandle) {
 /// Every ZHU window as the switch says. On the main thread.
 fn apply_all(app: &AppHandle, hidden: bool) {
     protect(app);
-    for label in LABELS {
-        if let Some(w) = app.get_webview_window(label) {
-            imp::apply(&w, hidden);
-        }
+    for w in windows(app) {
+        imp::apply(&w, hidden);
     }
     // The main window is on top of other windows exactly while ZHU is hidden.
-    if let Some(main) = app.get_webview_window("main") {
+    if let Some(main) = crate::main_window(app) {
         let _ = main.set_always_on_top(hidden);
     }
 }
@@ -159,7 +162,7 @@ mod imp {
         unsafe { GetWindowLongPtrW(hwnd, GWL_EXSTYLE) as u32 & WS_EX_TOPMOST.0 != 0 }
     }
 
-    pub fn apply(window: &WebviewWindow, hidden: bool) {
+    pub fn apply(window: &tauri::Window, hidden: bool) {
         let Ok(hwnd) = window.hwnd() else { return };
         unsafe {
             let current = GetWindowLongPtrW(hwnd, GWL_EXSTYLE) as u32;
@@ -254,7 +257,7 @@ mod imp {
     pub fn install(_window: &WebviewWindow) {}
 
     /// Elsewhere only the main window has a taskbar or dock entry to leave out.
-    pub fn apply(window: &WebviewWindow, hidden: bool) {
+    pub fn apply(window: &tauri::Window, hidden: bool) {
         if window.label() == "main" {
             let _ = window.set_skip_taskbar(hidden);
         }

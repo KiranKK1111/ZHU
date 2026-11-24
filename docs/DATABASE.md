@@ -12,7 +12,7 @@ sessions ─┬─< transcript_segments            (UNIQUE session_id+segment_id
 chat_conversations ──< chat_messages (the Custom chat; migration 2; status streaming|completed|failed|cancelled)
 technical_vocabulary   (user terms; built-ins ship in vocabulary.json)
 processing_events      (event audit trail: seq, type, entity id; bounded by prune_events)
-settings               (key → JSON: engine_settings, providers, resume)
+settings               (key → JSON: engine_settings, providers, resumes, job)
 schema_migrations
 ```
 
@@ -25,7 +25,8 @@ schema_migrations
 | `provider_interactions` | `provider_id`, `model`, `prompt`, `screenshot_ids_json`, `response`, `status`, `error`, `usage_json` |
 | `chat_conversations` | `id`, `title` (from the first message), `created_at`, `updated_at` |
 | `chat_messages` | `seq` (order), `id`, `conversation_id`, `role` (user / assistant), `content` (an answer may start with a `<think>` block), `provider_id`, `model`, `status`, `error_json`, `usage_json`, `screenshot_ids_json` (migration 3: screenshots sent with a user's message) |
-| `settings` → `resume` | `file_name`, `text` (what was read from the uploaded file, at most 24,000 characters), `truncated`, `uploaded_at`, `enabled` |
+| `settings` → `resumes` | `items` (at most 10: `id`, `label`, `file_name`, `text` (what models receive, at most 24,000 characters), `file_text` (the text read from the file, kept only while the user's edits differ from it), `truncated`, `ocr`, `uploaded_at`, `edited_at`), `active_id`, `enabled`. The single `resume` of earlier versions is moved into `items` the first time it is read (`engine/zhu_engine/profile.py`) |
+| `settings` → `job` | `title`, `text` (at most 12,000 characters), `enabled`, `truncated`, `ocr`, `source` (the file it was read from; null when typed), `updated_at` |
 
 ## Crash recovery
 

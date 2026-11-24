@@ -35,7 +35,7 @@ When a provider is connected, the engine works out which of its chat models cost
 
 A flag is believed before a price, and a price before an id. A negative price ("varies", used by routing models) counts as paid. Free models are listed first, and when only some models are free, Connect selects a free one, so connecting never selects a paid model by itself. The basis is a statement about the provider's list on the day of connecting; **Refresh** in the chat's model list reads the lists again.
 
-**Paid APIs are separate from chat subscriptions.** ChatGPT Plus, Claude Pro, and similar plans do not include API access. To use those accounts, open the provider's website under AI chats instead (WEB_CHATS.md).
+**Paid APIs are separate from chat subscriptions.** ChatGPT Plus, Claude Pro, and similar plans do not include API access. To use those accounts, open the provider's website as a chat tab instead (the **+** on the tab strip; WEB_CHATS.md).
 
 ## Connect is one step
 
@@ -58,9 +58,9 @@ Tested against a real local OpenAI-compatible HTTP server without a key: connect
 
 ## Asking
 
-`POST /api/providers/{id}/submit {session_id, prompt, screenshot_ids, system?}`. `system` carries the user's "How answers should sound" text and is appended to the built-in system prompt. Answers stream over the WebSocket (`provider.delta`).
+`POST /api/providers/{id}/submit {session_id, prompt, screenshot_ids, system?}`. `system` carries the user's "How answers should sound" text and is appended to the built-in system prompt. Answers stream over the WebSocket (`provider.delta`) and are stored as interactions of the session.
 
-The desktop app asks in three ways, all through the same code (`services/ask.ts`): the **Answer** button on a question, the ask box, and **Auto-answer** (off by default; when on, each question that completes while listening is asked once).
+In the desktop app, answers come from the Custom chat, which has a route of its own (`POST /api/chats/{id}/messages`, CHAT.md); the app does not call `submit`. A detected question reaches the chat only as a draft in its message box (**Send to chat** on the question card, or automatically while listening), and is sent when you press Send.
 
 ## Adapter contract (`engine/zhu_engine/providers/base.py`)
 

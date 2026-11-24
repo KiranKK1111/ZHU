@@ -7,7 +7,7 @@ import { cn } from "@/utils/cn";
 export function Toaster() {
   const toasts = useToasts((s) => s.toasts);
   const dismiss = useToasts((s) => s.dismiss);
-  // On the AI chats screen a native webview covers this corner; that screen shows the latest toast inline.
+  // On the chats screen a native webview covers this corner; that screen shows the latest toast inline.
   const covered = useNav((s) => s.route === "webchats");
   if (covered) return null;
   return (

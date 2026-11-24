@@ -14,7 +14,7 @@ import asyncio
 import base64
 from typing import AsyncIterator, Optional
 
-from .base import Capabilities, PromptRequest, ProviderAdapter, ProviderError, ProviderEvent
+from .base import Capabilities, PromptRequest, ProviderAdapter, ProviderError, ProviderEvent, error_details, server_failure
 
 DEFAULT_MODEL = "claude-opus-5-5"
 FALLBACK_BETA = "server-side-fallback-2026-07-01"
@@ -61,6 +61,12 @@ class AnthropicAdapter(ProviderAdapter):
 
     def _messages(self, request: PromptRequest) -> list[dict]:
         messages: list[dict] = [{"role": t.role, "content": t.text} for t in request.history if t.text.strip()]
+        if messages:
+            # The conversation so far is the start of the next request too: a second cache point at its
+            # end lets each new message reuse everything before it (the short resume profile alone is
+            # below the size Claude caches, a conversation soon is not).
+            last = messages[-1]
+            last["content"] = [{"type": "text", "text": last["content"], "cache_control": {"type": "ephemeral"}}]
         content: list[dict] = [
             {"type": "image", "source": {"type": "base64", "media_type": img.media_type, "data": base64.standard_b64encode(img.data).decode("ascii")}}
             for img in request.images
@@ -79,7 +85,10 @@ class AnthropicAdapter(ProviderAdapter):
             "output_config": {"effort": self._effort},
         }
         if request.system:
-            kwargs["system"] = request.system
+            # The system prompt (with the resume and the job) is the same for every question, so it is
+            # marked for caching: later questions reuse it, which makes the first words arrive sooner and
+            # costs a tenth for that part. A prompt shorter than the model's minimum is simply not cached.
+            kwargs["system"] = [{"type": "text", "text": request.system, "cache_control": {"type": "ephemeral"}}]
         if self._use_fallbacks:
             kwargs["betas"] = [FALLBACK_BETA]
             kwargs["fallbacks"] = "default"
@@ -94,11 +103,17 @@ class AnthropicAdapter(ProviderAdapter):
         except ProviderError:
             raise
         except Exception as exc:
-            raise _map_error(exc) from exc
+            raise _map_error(exc, kwargs["model"]) from exc
         if final.stop_reason == "refusal":
             category = getattr(getattr(final, "stop_details", None), "category", None)
             raise ProviderError("refused", "Claude declined this request" + (f" ({category})." if category else "."))
-        usage = {"input_tokens": final.usage.input_tokens, "output_tokens": final.usage.output_tokens, "stop_reason": final.stop_reason}
+        usage = {
+            "input_tokens": final.usage.input_tokens,
+            "output_tokens": final.usage.output_tokens,
+            "cache_read_input_tokens": getattr(final.usage, "cache_read_input_tokens", None) or 0,
+            "cache_creation_input_tokens": getattr(final.usage, "cache_creation_input_tokens", None) or 0,
+            "stop_reason": final.stop_reason,
+        }
         yield ProviderEvent("completed", usage=usage, model=final.model)
 
     async def dispose(self) -> None:
@@ -108,7 +123,7 @@ class AnthropicAdapter(ProviderAdapter):
             self._client = None
 
 
-def _map_error(exc: Exception) -> ProviderError:
+def _map_error(exc: Exception, model: Optional[str] = None) -> ProviderError:
     import anthropic
 
     if isinstance(exc, anthropic.AuthenticationError):
@@ -123,7 +138,12 @@ def _map_error(exc: Exception) -> ProviderError:
     if isinstance(exc, anthropic.BadRequestError):
         return ProviderError("invalid_request", f"Request rejected: {exc.message}", status=400)
     if isinstance(exc, anthropic.APIStatusError):
-        return ProviderError("unavailable", f"Anthropic API error {exc.status_code}. Retry later.", status=exc.status_code)
+        said, _ = error_details(exc.body)
+        if exc.status_code >= 500:
+            # Before an answer starts the client has already asked again twice (max_retries=2); an error
+            # in the middle of the stream is not retried, so no count is claimed.
+            return server_failure("Anthropic", exc.status_code, model, said)
+        return ProviderError("unavailable", f"Anthropic answered with an unexpected status (HTTP {exc.status_code})" + (f": {said}" if said else "."), status=exc.status_code)
     if isinstance(exc, anthropic.APIConnectionError):
         return ProviderError("network", "Network error contacting Anthropic. Check your connection.")
     return ProviderError("unavailable", str(exc))

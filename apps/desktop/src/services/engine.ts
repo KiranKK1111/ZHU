@@ -16,7 +16,8 @@ import type {
   ProviderConfig,
   ProviderInfo,
   ProviderTestResult,
-  ResumeInfo,
+  ResumesState,
+  ChatContext,
   Question,
   Screenshot,
   Session,
@@ -107,9 +108,16 @@ async function upload<T>(path: string, file: Blob): Promise<T> {
 
 export async function fetchBlob(path: string, signal?: AbortSignal): Promise<Blob> {
   const res = await fetch(baseUrl() + path, { headers: { Authorization: `Bearer ${connection!.token}` }, signal });
-  if (!res.ok) throw new EngineHttpError(res.status, `Image unavailable (HTTP ${res.status})`);
+  if (!res.ok) {
+    // The engine's own reason when it gives one ("uploaded before ZHU kept the files…").
+    const payload: unknown = await res.json().catch(() => null);
+    throw new EngineHttpError(res.status, payload ? detailMessage(payload, res.status) : `Unavailable (HTTP ${res.status})`);
+  }
   return res.blob();
 }
+
+/** A provider and a model, as query parameters (the Custom chat's choice). */
+export type ModelChoice = { provider_id?: string | null; model?: string | null };
 
 const enc = encodeURIComponent;
 const qs = (params: Record<string, string | number | boolean | undefined | null>): string => {
@@ -156,10 +164,20 @@ export const api = {
   deleteScreenshot: (id: string) => request<{ ok: boolean }>("DELETE", `/screenshots/${enc(id)}`),
   copyScreenshot: (id: string) => request<{ ok: boolean }>("POST", `/screenshots/${enc(id)}/copy`),
 
-  resume: () => request<ResumeInfo | null>("GET", "/resume"),
-  uploadResume: (file: File) => upload<ResumeInfo>(`/resume${qs({ file_name: file.name })}`, file),
-  enableResume: (enabled: boolean) => request<ResumeInfo>("PATCH", "/resume", { enabled }),
-  deleteResume: () => request<{ ok: boolean }>("DELETE", "/resume"),
+  resumes: () => request<ResumesState>("GET", "/resumes"),
+  /** `model`: the Custom chat's, which condenses the resume into its short profile once (the engine picks one when absent). */
+  uploadResume: (file: File, model?: ModelChoice) => upload<ResumesState>(`/resumes${qs({ file_name: file.name, ...model })}`, file),
+  condenseResume: (model?: ModelChoice) => request<ResumesState>("POST", `/resumes/condense${qs({ ...model })}`),
+  selectResume: (body: { active_id?: string; enabled?: boolean }) => request<ResumesState>("PATCH", "/resumes", body),
+  /** The resume file as it was uploaded (shown in ZHU), and opening it in its own program (Word for a .docx). */
+  resumeFile: (id: string, signal?: AbortSignal) => fetchBlob(`/resumes/${enc(id)}/file`, signal),
+  openResumeFile: (id: string) => request<{ ok: boolean }>("POST", `/resumes/${enc(id)}/open`),
+  deleteResume: (id: string) => request<ResumesState>("DELETE", `/resumes/${enc(id)}`),
+  chatContext: () => request<ChatContext | null>("GET", "/resumes/chat-context"),
+  setJob: (body: { title?: string | null; text: string }, model?: ModelChoice) => request<ResumesState>("PUT", `/job${qs({ ...model })}`, body),
+  uploadJob: (file: File, title?: string, model?: ModelChoice) => upload<ResumesState>(`/job${qs({ file_name: file.name, title: title || undefined, ...model })}`, file),
+  enableJob: (enabled: boolean) => request<ResumesState>("PATCH", "/job", { enabled }),
+  deleteJob: () => request<ResumesState>("DELETE", "/job"),
 
   providers: () => request<ProviderInfo[]>("GET", "/providers"),
   updateProvider: (id: string, patch: Partial<Omit<ProviderConfig, "known_models">> & { api_key?: string }) =>

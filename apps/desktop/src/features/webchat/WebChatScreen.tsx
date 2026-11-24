@@ -1,8 +1,7 @@
-import { ArrowLeft, ArrowRight, ExternalLink, Globe, Home, Loader2, MessagesSquare, Plus, RotateCw, Send, SlidersHorizontal, Sparkles, X } from "lucide-react";
+import { ArrowRight, Globe, Loader2, MessagesSquare, Plus, SlidersHorizontal, Sparkles, X } from "lucide-react";
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useChat } from "@/app/state/chat";
 import { usePrefs } from "@/app/state/prefs";
-import { latestQuestion, useQuestions } from "@/app/state/questions";
 import { toast, useToasts } from "@/app/state/ui";
 import { tabRuntime, useWebChat } from "@/app/state/webchat";
 import { Button, IconButton } from "@/components/primitives/Button";
@@ -10,12 +9,14 @@ import { Modal } from "@/components/primitives/Dialog";
 import { Spinner } from "@/components/primitives/Display";
 import { Field, Input } from "@/components/primitives/Input";
 import { Menu, MenuContent, MenuItem, MenuLabel, MenuSeparator, MenuTrigger, Popover, PopoverContent, PopoverTrigger } from "@/components/primitives/Menu";
-import { inTauri, openExternal, shell } from "@/services/shell";
+import { QuestionsColumn, ShowQuestionsButton } from "@/components/questions/QuestionsColumn";
+import { inTauri, shell } from "@/services/shell";
 import { useDropZone } from "@/hooks/useDropZone";
-import { ensureTabLoaded, sendQuestionToChats, sendScreenshotsToTab } from "@/services/webchatDelivery";
+import { ensureTabLoaded, sendScreenshotsToTab } from "@/services/webchatDelivery";
 import { cn } from "@/utils/cn";
 import { errorMessage } from "@/utils/format";
-import { CHAT_SERVICES, hostOf, isNativeChat, NATIVE_CHAT, newTabId, normalizeChatUrl, type ChatService, type WebChatTab } from "./services";
+import { CHAT_SERVICES, hostOf, isNativeChat, NATIVE_CHAT, normalizeChatUrl, type ChatService, type WebChatTab } from "./services";
+import { openChatTab } from "./tabs";
 import { WebChatOptions } from "./WebChatOptions";
 
 // The built-in chat brings its Markdown, code highlighting and formula rendering; they load with the first chat tab.
@@ -40,6 +41,7 @@ export default function WebChatScreen() {
   const active = tabs.find((t) => t.id === activePref) ?? tabs[0] ?? null;
   const native = !!active && isNativeChat(active);
   const hostRef = useRef<HTMLDivElement>(null);
+  const questionsCollapsed = usePrefs((p) => p.questionsCollapsed);
   const [customOpen, setCustomOpen] = useState(false);
   const occluded = useOccluded();
 
@@ -53,16 +55,7 @@ export default function WebChatScreen() {
     return () => useWebChat.getState().setNativeOnScreen(false);
   }, [nativeId]);
 
-  const openTab = useCallback(
-    (service: Pick<ChatService, "id" | "name" | "url">) => {
-      const tab: WebChatTab = { id: newTabId(service.id), service: service.id, name: service.name, url: service.url };
-      const all = usePrefs.getState().webChatTabs;
-      const sameService = all.filter((t) => t.service === service.id).length;
-      if (sameService) tab.name = `${service.name} ${sameService + 1}`;
-      setPrefs({ webChatTabs: [...all, tab], webChatActive: tab.id });
-    },
-    [setPrefs],
-  );
+  const openTab = useCallback((service: Pick<ChatService, "id" | "name" | "url">) => void openChatTab(service), []);
 
   const closeTab = useCallback(
     (id: string) => {
@@ -88,145 +81,124 @@ export default function WebChatScreen() {
   );
   const onConversation = useCallback((conversation: string | null) => (nativeId ? setConversation(nativeId, conversation) : undefined), [nativeId, setConversation]);
 
-  const rt = active && !native ? tabRuntime(runtime, active.id) : null;
-
+  // The questions column keeps its width and collapsed state in the preferences; the page area
+  // below is measured by its own observer (useChatViewport), so the website's native view follows
+  // the column as it is dragged, collapsed or opened.
   return (
-    <div className="flex h-full flex-col">
-      <div className="flex h-10 shrink-0 items-center gap-1 border-b border-border-subtle px-2">
-        <div role="tablist" aria-label="Chat tabs" className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
-          {tabs.map((t) => {
-            const r = tabRuntime(runtime, t.id);
-            const selected = active?.id === t.id;
-            const own = isNativeChat(t);
-            const answering = own && !!t.conversation && !!chatStreaming[t.conversation];
-            return (
-              <div
-                key={t.id}
-                className={cn(
-                  "group flex h-7 shrink-0 items-center rounded-md border text-secondary transition-colors duration-fast",
-                  selected ? "border-border bg-active text-fg" : "border-transparent text-fg-2 hover:bg-hover hover:text-fg",
-                )}
-              >
-                <button type="button" role="tab" aria-selected={selected} onClick={() => setPrefs({ webChatActive: t.id })} className="flex h-full items-center gap-1.5 pl-2.5 pr-1" title={r.title ?? t.name}>
-                  {r.delivering || r.loading || answering ? (
-                    <Loader2 className="h-3 w-3 animate-spin text-fg-3" aria-hidden />
-                  ) : own ? (
-                    chatUnread[t.id] ? <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-accent" /> : <Sparkles className="h-3 w-3 text-accent" aria-hidden />
-                  ) : (
-                    <span
-                      aria-hidden
-                      className={cn("h-1.5 w-1.5 rounded-full", r.unread ? "bg-accent" : r.last && !r.last.ok ? "bg-warning" : r.loaded ? "bg-success" : "bg-fg-3")}
-                    />
+    <QuestionsColumn>
+      <div className="flex min-h-0 min-w-0 flex-col">
+        <div className="flex h-10 shrink-0 items-center gap-1 border-b border-border-subtle px-2">
+          {questionsCollapsed ? <ShowQuestionsButton /> : null}
+          <div role="tablist" aria-label="Chat tabs" className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
+            {tabs.map((t) => {
+              const r = tabRuntime(runtime, t.id);
+              const selected = active?.id === t.id;
+              const own = isNativeChat(t);
+              const answering = own && !!t.conversation && !!chatStreaming[t.conversation];
+              return (
+                <div
+                  key={t.id}
+                  className={cn(
+                    "group flex h-7 shrink-0 items-center rounded-md border text-secondary transition-colors duration-fast",
+                    selected ? "border-border bg-active text-fg" : "border-transparent text-fg-2 hover:bg-hover hover:text-fg",
                   )}
-                  <span className="max-w-[140px] truncate">{t.name}</span>
-                  <span className="sr-only">{own ? (answering ? "(answering)" : chatUnread[t.id] ? "(draft ready)" : "") : r.unread ? "(draft ready)" : r.last && !r.last.ok ? "(needs attention)" : !r.loaded ? "(not loaded yet)" : ""}</span>
-                </button>
-                <button
-                  type="button"
-                  aria-label={`Close ${t.name}`}
-                  onClick={() => closeTab(t.id)}
-                  className="mr-1 flex h-4 w-4 items-center justify-center rounded-xs text-fg-3 opacity-60 hover:bg-hover hover:text-fg group-hover:opacity-100"
                 >
-                  <X className="h-3 w-3" />
-                </button>
-              </div>
-            );
-          })}
-          <Menu>
-            <MenuTrigger asChild>
-              <IconButton label="Open a chat tab" size="sm" noTooltip>
-                <Plus className="h-4 w-4" />
-              </IconButton>
-            </MenuTrigger>
-            <MenuContent align="start">
-              <MenuLabel>Chat inside ZHU</MenuLabel>
-              <MenuItem icon={<Sparkles className="h-3.5 w-3.5 text-accent" />} onSelect={() => openTab(NATIVE_CHAT)}>
-                {NATIVE_CHAT.name}
-                <span className="ml-auto pl-4 text-caption text-fg-3">Free models</span>
-              </MenuItem>
-              <MenuSeparator />
-              <MenuLabel>Open a chat website</MenuLabel>
-              {CHAT_SERVICES.map((s) => (
-                <MenuItem key={s.id} onSelect={() => openTab(s)}>
-                  {s.name}
-                  <span className="ml-auto pl-4 text-caption text-fg-3">{s.vendor}</span>
+                  <button type="button" role="tab" aria-selected={selected} onClick={() => setPrefs({ webChatActive: t.id })} className="flex h-full items-center gap-1.5 pl-2.5 pr-1" title={r.last ? `${r.title ?? t.name}: ${r.last.message}` : (r.title ?? t.name)}>
+                    {r.delivering || r.loading || answering ? (
+                      <Loader2 className="h-3 w-3 animate-spin text-fg-3" aria-hidden />
+                    ) : own ? (
+                      chatUnread[t.id] ? <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-accent" /> : <Sparkles className="h-3 w-3 text-accent" aria-hidden />
+                    ) : (
+                      <span
+                        aria-hidden
+                        className={cn("h-1.5 w-1.5 rounded-full", r.unread ? "bg-accent" : r.last && !r.last.ok ? "bg-warning" : r.loaded ? "bg-success" : "bg-fg-3")}
+                      />
+                    )}
+                    <span className="max-w-[140px] truncate">{t.name}</span>
+                    <span className="sr-only">{own ? (answering ? "(answering)" : chatUnread[t.id] ? "(draft ready)" : "") : r.unread ? "(draft ready)" : r.last && !r.last.ok ? "(needs attention)" : !r.loaded ? "(not loaded yet)" : ""}</span>
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={`Close ${t.name}`}
+                    onClick={() => closeTab(t.id)}
+                    className="mr-1 flex h-4 w-4 items-center justify-center rounded-xs text-fg-3 opacity-60 hover:bg-hover hover:text-fg group-hover:opacity-100"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              );
+            })}
+            <Menu>
+              <MenuTrigger asChild>
+                <IconButton label="Open a chat tab" size="sm" noTooltip>
+                  <Plus className="h-4 w-4" />
+                </IconButton>
+              </MenuTrigger>
+              <MenuContent align="start">
+                <MenuLabel>Chat inside ZHU</MenuLabel>
+                <MenuItem icon={<Sparkles className="h-3.5 w-3.5 text-accent" />} onSelect={() => openTab(NATIVE_CHAT)}>
+                  {NATIVE_CHAT.name}
+                  <span className="ml-auto pl-4 text-caption text-fg-3">Free models</span>
                 </MenuItem>
-              ))}
-              <MenuSeparator />
-              <MenuItem icon={<Globe className="h-3.5 w-3.5" />} onSelect={() => setCustomOpen(true)}>
-                Other website…
-              </MenuItem>
-            </MenuContent>
-          </Menu>
+                <MenuSeparator />
+                <MenuLabel>Open a chat website</MenuLabel>
+                {CHAT_SERVICES.map((s) => (
+                  <MenuItem key={s.id} onSelect={() => openTab(s)}>
+                    {s.name}
+                    <span className="ml-auto pl-4 text-caption text-fg-3">{s.vendor}</span>
+                  </MenuItem>
+                ))}
+                <MenuSeparator />
+                <MenuItem icon={<Globe className="h-3.5 w-3.5" />} onSelect={() => setCustomOpen(true)}>
+                  Other website…
+                </MenuItem>
+              </MenuContent>
+            </Menu>
+          </div>
+          <InlineStatus />
+          <Popover>
+            <PopoverTrigger asChild>
+              <IconButton label="Delivery options" size="sm" noTooltip>
+                <SlidersHorizontal className="h-4 w-4" />
+              </IconButton>
+            </PopoverTrigger>
+            <PopoverContent className="w-[400px] py-1">
+              <WebChatOptions />
+            </PopoverContent>
+          </Popover>
         </div>
-        <InlineStatus />
-        <Popover>
-          <PopoverTrigger asChild>
-            <IconButton label="Delivery options" size="sm" noTooltip>
-              <SlidersHorizontal className="h-4 w-4" />
-            </IconButton>
-          </PopoverTrigger>
-          <PopoverContent className="w-[400px] py-1">
-            <WebChatOptions />
-          </PopoverContent>
-        </Popover>
-      </div>
 
-      {active && rt ? (
-        <div className="flex h-9 shrink-0 items-center gap-0.5 border-b border-border-subtle px-2">
-          <IconButton label="Back" size="sm" noTooltip disabled={!rt.loaded} onClick={() => void shell.webchatNavigate(active.id, "back").catch(() => undefined)}>
-            <ArrowLeft className="h-3.5 w-3.5" />
-          </IconButton>
-          <IconButton label="Forward" size="sm" noTooltip disabled={!rt.loaded} onClick={() => void shell.webchatNavigate(active.id, "forward").catch(() => undefined)}>
-            <ArrowRight className="h-3.5 w-3.5" />
-          </IconButton>
-          <IconButton label="Reload" size="sm" noTooltip disabled={!rt.loaded} onClick={() => void shell.webchatNavigate(active.id, "reload").catch(() => undefined)}>
-            <RotateCw className="h-3.5 w-3.5" />
-          </IconButton>
-          <IconButton label={`${active.name} home`} size="sm" noTooltip disabled={!rt.loaded} onClick={() => void shell.webchatNavigate(active.id, "goto", active.url).catch((e) => toast.error("Could not open page", errorMessage(e)))}>
-            <Home className="h-3.5 w-3.5" />
-          </IconButton>
-          <span className="ml-2 min-w-0 flex-1 truncate text-caption text-fg-3" title={rt.url ?? active.url}>
-            {hostOf(rt.url ?? active.url)}
-            {rt.last ? <span className={cn("ml-3", rt.last.ok ? "text-fg-2" : "text-warning")}>{rt.last.message}</span> : null}
-          </span>
-          <SendLatestButton />
-          <IconButton label="Open this page in your browser" size="sm" noTooltip onClick={() => void openExternal(rt.url ?? active.url).catch((e) => toast.error("Could not open browser", errorMessage(e)))}>
-            <ExternalLink className="h-3.5 w-3.5" />
-          </IconButton>
+        <div ref={hostRef} className="relative min-h-0 flex-1 bg-surface">
+          {active && native ? (
+            <div className="absolute inset-0">
+              <Suspense fallback={<div className="flex h-full items-center justify-center"><Spinner label="Opening chat" /></div>}>
+                <ChatPane key={active.id} tab={active} onConversation={onConversation} />
+              </Suspense>
+            </div>
+          ) : active && !inTauri ? (
+            <div className="absolute inset-0 flex items-center justify-center p-8 text-center text-body text-fg-2">
+              Chat websites need the ZHU desktop app: they are native browser views inside its window.
+            </div>
+          ) : active ? (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-secondary text-fg-3" aria-hidden={!occluded}>
+              <WebsiteDropZone tab={active} />
+              {occluded ? (
+                <span>The page is hidden while a menu or dialog is open.</span>
+              ) : (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                  <span>Loading {active.name}…</span>
+                </>
+              )}
+            </div>
+          ) : (
+            <EmptyChats onOpen={openTab} onCustom={() => setCustomOpen(true)} />
+          )}
         </div>
-      ) : null}
 
-      <div ref={hostRef} className="relative min-h-0 flex-1 bg-surface">
-        {active && native ? (
-          <div className="absolute inset-0">
-            <Suspense fallback={<div className="flex h-full items-center justify-center"><Spinner label="Opening chat" /></div>}>
-              <ChatPane key={active.id} tab={active} onConversation={onConversation} />
-            </Suspense>
-          </div>
-        ) : active && !inTauri ? (
-          <div className="absolute inset-0 flex items-center justify-center p-8 text-center text-body text-fg-2">
-            Chat websites need the ZHU desktop app: they are native browser views inside its window.
-          </div>
-        ) : active ? (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-secondary text-fg-3" aria-hidden={!occluded}>
-            <WebsiteDropZone tab={active} />
-            {occluded ? (
-              <span>The page is hidden while a menu or dialog is open.</span>
-            ) : (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                <span>Loading {active.name}…</span>
-              </>
-            )}
-          </div>
-        ) : (
-          <EmptyChats onOpen={openTab} onCustom={() => setCustomOpen(true)} />
-        )}
+        <CustomTabDialog open={customOpen} onOpenChange={setCustomOpen} onAdd={(name, url) => openTab({ id: "custom", name, url })} />
       </div>
-
-      <CustomTabDialog open={customOpen} onOpenChange={setCustomOpen} onAdd={(name, url) => openTab({ id: "custom", name, url })} />
-    </div>
+    </QuestionsColumn>
   );
 }
 
@@ -346,33 +318,6 @@ function InlineStatus() {
       {latest.title}
       {latest.description ? ` — ${latest.description}` : ""}
     </span>
-  );
-}
-
-function SendLatestButton() {
-  const hasQuestion = useQuestions((s) => Object.keys(s.byId).length > 0);
-  const [busy, setBusy] = useState(false);
-  return (
-    <Button
-      size="sm"
-      variant="ghost"
-      icon={<Send className="h-3.5 w-3.5" />}
-      loading={busy}
-      disabled={!hasQuestion}
-      title={hasQuestion ? "Put the latest detected question into the chat tabs" : "No question detected yet"}
-      onClick={async () => {
-        const q = latestQuestion(useQuestions.getState());
-        if (!q) return;
-        setBusy(true);
-        try {
-          await sendQuestionToChats(q);
-        } finally {
-          setBusy(false);
-        }
-      }}
-    >
-      Send latest question
-    </Button>
   );
 }
 

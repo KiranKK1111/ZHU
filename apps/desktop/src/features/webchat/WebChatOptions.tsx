@@ -7,7 +7,7 @@ import { ConfirmDialog } from "@/components/primitives/Dialog";
 import { inTauri, shell } from "@/services/shell";
 import { errorMessage } from "@/utils/format";
 
-/** How questions and screenshots reach the chat tabs. Used in the AI chats toolbar and in Settings. */
+/** How questions and screenshots reach the chat tabs. Used in the chat tab strip and in Settings. */
 export function WebChatOptions() {
   const autoQuestions = usePrefs((p) => p.webChatAutoQuestions);
   const autoScreenshots = usePrefs((p) => p.webChatAutoScreenshots);

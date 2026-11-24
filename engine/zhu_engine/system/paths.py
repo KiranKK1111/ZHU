@@ -33,6 +33,11 @@ class AppPaths:
         return self.root / "cache" / "frozen"
 
     @property
+    def resume(self) -> Path:
+        """The resume file as it was uploaded, so it can be shown again (profile.py)."""
+        return self.root / "resume"
+
+    @property
     def models(self) -> Path:
         return self.root / "models"
 

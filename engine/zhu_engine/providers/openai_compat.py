@@ -15,7 +15,11 @@ from typing import AsyncIterator, Callable, Optional
 
 import httpx
 
-from .base import Capabilities, PromptRequest, ProviderAdapter, ProviderError, ProviderEvent
+from .base import Capabilities, PromptRequest, ProviderAdapter, ProviderError, ProviderEvent, error_details, provider_words, server_failure
+
+# A model that is busy or briefly down (HTTP 5xx, or an error before the first word) is asked again
+# after these pauses, before the failure is shown: free models often are, for a few seconds.
+RETRY_DELAYS = (1.5, 4.0)
 
 
 class OpenAICompatibleAdapter(ProviderAdapter):
@@ -62,7 +66,7 @@ class OpenAICompatibleAdapter(ProviderAdapter):
         try:
             r = await self._client.get("/models")
         except httpx.HTTPError as exc:
-            raise ProviderError("network", f"Network error contacting {self.name}: {exc}") from exc
+            raise _network_error(self.name, exc) from exc
         if r.status_code != 200:
             raise _http_error(self.name, r)
         try:
@@ -105,33 +109,44 @@ class OpenAICompatibleAdapter(ProviderAdapter):
             raise ProviderError("invalid_request", f"No model is selected for {self.name}. Press Connect in Settings.")
         body = {"model": model, "messages": self._messages(request), "stream": True}
         usage = None
-        try:
-            # Token usage is requested when the server accepts the option. Some OpenAI-compatible
-            # servers reject unknown fields with HTTP 400/422; those get the same request without it.
-            for with_usage in (self._usage_option, False):
-                if with_usage:
-                    body["stream_options"] = {"include_usage": True}
-                else:
-                    body.pop("stream_options", None)
-                async with self._client.stream("POST", "/chat/completions", json=body) as r:
-                    if r.status_code in (400, 422) and with_usage:
-                        await r.aread()
-                        self._usage_option = False
-                        continue
-                    if r.status_code != 200:
-                        await r.aread()
-                        raise _http_error(self.name, r)
-                    async for event in self._read_stream(r, cancel):
-                        if isinstance(event, dict):
-                            usage = event
-                        else:
-                            yield event
-                break
-        except httpx.HTTPError as exc:
-            raise ProviderError("network", f"Network error contacting {self.name}: {exc}") from exc
+        attempt = 0
+        while True:
+            attempt += 1
+            started = False  # once words have been shown, a failure is reported, never retried
+            try:
+                # Token usage is requested when the server accepts the option. Some OpenAI-compatible
+                # servers reject unknown fields with HTTP 400/422; those get the same request without it.
+                for with_usage in (self._usage_option, False):
+                    if with_usage:
+                        body["stream_options"] = {"include_usage": True}
+                    else:
+                        body.pop("stream_options", None)
+                    async with self._client.stream("POST", "/chat/completions", json=body) as r:
+                        if r.status_code in (400, 422) and with_usage:
+                            await r.aread()
+                            self._usage_option = False
+                            continue
+                        if r.status_code != 200:
+                            await r.aread()
+                            raise _http_error(self.name, r, model, attempt)
+                        async for event in self._read_stream(r, cancel, model, attempt):
+                            if isinstance(event, dict):
+                                usage = event
+                            else:
+                                started = True
+                                yield event
+                    break
+            except ProviderError as exc:
+                if started or exc.kind != "unavailable" or attempt > len(RETRY_DELAYS):
+                    raise
+                await _pause(RETRY_DELAYS[attempt - 1], cancel)
+                continue
+            except httpx.HTTPError as exc:
+                raise _network_error(self.name, exc) from exc
+            break
         yield ProviderEvent("completed", usage=usage, model=model)
 
-    async def _read_stream(self, r: httpx.Response, cancel: asyncio.Event):
+    async def _read_stream(self, r: httpx.Response, cancel: asyncio.Event, model: Optional[str] = None, attempt: int = 1):
         """Read a server-sent-events response: yields delta events, and the usage report as a plain dict."""
         async for line in r.aiter_lines():
             if cancel.is_set():
@@ -145,6 +160,12 @@ class OpenAICompatibleAdapter(ProviderAdapter):
                 chunk = json.loads(data)
             except json.JSONDecodeError:
                 continue
+            if not isinstance(chunk, dict):
+                continue
+            if chunk.get("error"):
+                # Gateways report a failure that happens after the answer has started (the model's
+                # service failed or timed out) as an event in the stream, with status 200 on the response.
+                raise _stream_error(self.name, chunk, model, attempt)
             if chunk.get("usage"):
                 yield chunk["usage"]
             for choice in chunk.get("choices", []):
@@ -179,13 +200,50 @@ def _model_entries(payload) -> list[dict]:
     return [entries[k] for k in sorted(entries)]
 
 
-def _http_error(name: str, r: httpx.Response) -> ProviderError:
+async def _pause(seconds: float, cancel: asyncio.Event) -> None:
+    """Wait before asking again; Stop ends the wait at once."""
     try:
-        detail = r.json().get("error", {})
-        message = detail.get("message") if isinstance(detail, dict) else str(detail)
+        await asyncio.wait_for(cancel.wait(), timeout=seconds)
+    except asyncio.TimeoutError:
+        return
+    raise ProviderError("cancelled", "Request cancelled.")
+
+
+def _network_error(name: str, exc: httpx.HTTPError) -> ProviderError:
+    if isinstance(exc, (httpx.ConnectError, httpx.ConnectTimeout)):
+        return ProviderError("network", f"Could not connect to {name}. Check your internet connection (for a custom model, its address).")
+    if isinstance(exc, httpx.ReadTimeout):
+        return ProviderError("network", f"{name} stopped responding: nothing arrived for 2 minutes. Try again, or choose another model.")
+    if isinstance(exc, (httpx.RemoteProtocolError, httpx.ReadError)):
+        return ProviderError("network", f"{name} closed the connection before the answer was complete. Try again.")
+    return ProviderError("network", f"Network error contacting {name}: {exc or type(exc).__name__}")
+
+
+def _stream_error(name: str, chunk: dict, model: Optional[str], attempt: int) -> ProviderError:
+    err = chunk.get("error")
+    code = err.get("code") if isinstance(err, dict) else None
+    try:
+        status = int(code) if code is not None else 502
+    except (TypeError, ValueError):
+        status = 502
+    said, upstream = error_details(chunk)
+    if status == 429:
+        return ProviderError("rate_limited", f"{name} rate limit or quota reached. {said}".strip(), status=status)
+    if 400 <= status < 500:
+        return ProviderError("invalid_request", f"{name} stopped the answer: {said or f'error {status}'}", status=status)
+    return server_failure(name, status if status >= 500 else 502, model, said, upstream, attempt)
+
+
+def _http_error(name: str, r: httpx.Response, model: Optional[str] = None, attempts: int = 1) -> ProviderError:
+    try:
+        payload = r.json()
     except Exception:
-        message = r.text[:300]
+        payload = None
+    said, upstream = error_details(payload) if payload is not None else (provider_words(r.text), "")
+    message = said
     status = r.status_code
+    if status >= 500:
+        return server_failure(name, status, model, said, upstream, attempts)
     if status == 401:
         return ProviderError("authentication", f"{name} rejected the API key (or requires one).", status=status)
     if status == 403:
@@ -202,5 +260,5 @@ def _http_error(name: str, r: httpx.Response) -> ProviderError:
             retry_s = None
         return ProviderError("rate_limited", f"{name} rate limit or quota reached. {message or ''}".strip(), retry_after_s=retry_s, status=status)
     if 400 <= status < 500:
-        return ProviderError("invalid_request", f"{name} rejected the request: {message}", status=status)
-    return ProviderError("unavailable", f"{name} returned HTTP {status}. Retry later.", status=status)
+        return ProviderError("invalid_request", f"{name} rejected the request (HTTP {status})" + (f": {message}" if message else "."), status=status)
+    return ProviderError("unavailable", f"{name} answered with an unexpected status (HTTP {status}). Try again, or choose another model.", status=status)

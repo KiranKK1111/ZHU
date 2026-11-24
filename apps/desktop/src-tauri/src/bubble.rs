@@ -200,8 +200,7 @@ fn keep_on_screen(w: &WebviewWindow, min_visible: i32) {
 /// Bottom-right corner of the work area of the monitor the main window is on.
 fn default_position(app: &AppHandle) -> Option<PhysicalPosition<i32>> {
     // For a minimized window Windows reports the monitor of its last normal position.
-    let monitor = app
-        .get_webview_window("main")
+    let monitor = crate::main_window(app)
         .and_then(|m| m.current_monitor().ok().flatten())
         .or_else(|| app.primary_monitor().ok().flatten())?;
     let area = monitor.work_area();
@@ -250,7 +249,7 @@ fn wanted(app: &AppHandle) -> bool {
     st.minimize_bubble.load(Ordering::SeqCst)
         && crate::bars::is_hidden()
         && !st.quitting.load(Ordering::SeqCst)
-        && app.get_webview_window("main").map(|m| m.is_minimized().unwrap_or(false)).unwrap_or(false)
+        && crate::main_window(app).map(|m| m.is_minimized().unwrap_or(false)).unwrap_or(false)
 }
 
 /// Show the icon (the main window was minimized). Does nothing when the user switched it off.

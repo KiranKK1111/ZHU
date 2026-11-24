@@ -18,8 +18,8 @@
         "url": "index.html",
         "width": 1280,
         "height": 800,
-        "minWidth": 900,
-        "minHeight": 600,
+        "minWidth": 1100,
+        "minHeight": 690,
         "center": true,
         "decorations": false,
         "shadow": true,
@@ -28,7 +28,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self'; connect-src 'self' ipc: http://ipc.localhost http://127.0.0.1:* ws://127.0.0.1:*; img-src 'self' blob: data:; style-src 'self' 'unsafe-inline'; font-src 'self' data:",
+      "csp": "default-src 'self'; script-src 'self'; connect-src 'self' ipc: http://ipc.localhost http://127.0.0.1:* ws://127.0.0.1:*; img-src 'self' blob: data:; frame-src 'self' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:",
       "capabilities": [
         "default"
       ]

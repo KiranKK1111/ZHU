@@ -5,9 +5,8 @@ vi.mock("@/services/shell", () => ({ inTauri: true, shell: {}, broadcast: async 
 vi.mock("@/services/webchatDelivery", () => ({ sendScreenshotsToTab: async (...a: unknown[]) => void sentToTab.push(a) }));
 
 import { MAX_ATTACHMENTS, useChat } from "@/app/state/chat";
-import { useComposer } from "@/app/state/composer";
 import { DEFAULT_PREFS, usePrefs } from "@/app/state/prefs";
-import { useNav, useToasts } from "@/app/state/ui";
+import { useToasts } from "@/app/state/ui";
 import { addScreenshotsTo, chatTargetLabel, currentChatTarget } from "@/services/screenshotActions";
 import { beginScreenshotDrag, registerDropZone, useScreenshotDrag, wasDragged } from "@/services/screenshotDrag";
 
@@ -18,9 +17,7 @@ beforeEach(() => {
   sentToTab.length = 0;
   usePrefs.setState({ ...DEFAULT_PREFS, webChatTabs: [web, own], webChatActive: own.id });
   useChat.setState({ attachments: {}, drafts: {}, unread: {} });
-  useComposer.setState({ draft: "", attachments: [] });
   useToasts.setState({ toasts: [] });
-  useNav.setState({ route: "home" });
 });
 
 describe("screenshots waiting in a chat's message box", () => {
@@ -47,26 +44,33 @@ describe("screenshots waiting in a chat's message box", () => {
 });
 
 describe("where “Add to chat” goes", () => {
-  it("is the chat tab that is open on AI chats, otherwise the ask box on Home", () => {
-    expect(currentChatTarget()).toEqual({ kind: "home" }); // on Home, even with chat tabs open
-    useNav.setState({ route: "webchats" });
+  it("is the chat tab that is shown, or a new Custom chat when no tab is open", () => {
     expect(currentChatTarget()).toEqual({ kind: "chat", tabId: own.id, name: "Custom chat" });
     usePrefs.setState({ webChatActive: web.id });
     expect(currentChatTarget()).toEqual({ kind: "website", tabId: web.id, name: "ChatGPT" });
     expect(chatTargetLabel(currentChatTarget())).toBe("ChatGPT");
     usePrefs.setState({ webChatTabs: [], webChatActive: null });
-    expect(chatTargetLabel(currentChatTarget())).toBe("the ask box on Home");
+    expect(currentChatTarget()).toEqual({ kind: "new" });
+    expect(chatTargetLabel(currentChatTarget())).toBe("a new Custom chat");
   });
 
   it("puts screenshots into that message box and sends nothing", () => {
     addScreenshotsTo({ kind: "chat", tabId: own.id, name: "Custom chat" }, ["a", "b"]);
     expect(useChat.getState().attachments[own.id]).toEqual(["a", "b"]);
-    addScreenshotsTo({ kind: "home" }, ["c"]);
-    expect(useComposer.getState().attachments).toEqual(["c"]);
     addScreenshotsTo({ kind: "website", tabId: web.id, name: "ChatGPT" }, ["d"]);
     expect(sentToTab).toEqual([[web.id, ["d"]]]); // a website gets it as a draft, through the page helper
-    addScreenshotsTo({ kind: "home" }, []);
-    expect(useToasts.getState().toasts.map((t) => t.title)).toEqual(["2 screenshots added to Custom chat", "Screenshot added to the ask box"]);
+    addScreenshotsTo({ kind: "chat", tabId: own.id, name: "Custom chat" }, []);
+    expect(useToasts.getState().toasts.map((t) => t.title)).toEqual(["2 screenshots added to Custom chat"]);
+  });
+
+  it("opens a Custom chat for the screenshots when no chat tab is open", () => {
+    usePrefs.setState({ webChatTabs: [], webChatActive: null });
+    addScreenshotsTo({ kind: "new" }, ["c"]);
+    const [tab] = usePrefs.getState().webChatTabs;
+    expect(tab).toMatchObject({ service: "zhu", name: "Custom chat" });
+    expect(usePrefs.getState().webChatActive).toBe(tab.id);
+    expect(useChat.getState().attachments[tab.id]).toEqual(["c"]);
+    expect(useToasts.getState().toasts.map((t) => t.title)).toEqual(["Screenshot added to Custom chat"]);
   });
 });
 

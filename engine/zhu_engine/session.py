@@ -12,10 +12,14 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 import re
+import subprocess
+import sys
 import time
 import uuid
 from collections import OrderedDict
+from pathlib import Path
 from typing import Optional
 
 import numpy as np
@@ -26,6 +30,7 @@ from .capture.screenshots import ScreenshotStore, active_window_rect, encode_for
 from .providers.base import ChatTurn, ImageAttachment, PromptRequest, ProviderError
 from .providers.registry import ProviderRegistry
 from . import resume as resume_file
+from .profile import ProfileNotFound, ProfileStore
 from .questions import AudioSource, QuestionEngine, QuestionEngineConfig, QuestionEvent, TechnicalVocabulary, TranscriptSegment
 from .settings import EngineSettings, merge_settings
 from .storage.db import Database, now_ms
@@ -52,6 +57,8 @@ class SessionService:
         self.paths = paths
         self.db = db
         self.hub = hub
+        self.profile = ProfileStore(db, lambda: self.hub.publish("resume.updated", {}), paths.resume)
+        self._condensing: set[asyncio.Task] = set()
         self.loop: Optional[asyncio.AbstractEventLoop] = None
         self.settings = EngineSettings.model_validate(db.get_setting("engine_settings", {}) or {})
         self.gpu = GpuMonitor()
@@ -936,13 +943,13 @@ class SessionService:
         titled = not self.db.get_chat(cid)["title"]  # type: ignore[index]
         self.db.update_chat(cid, title=_chat_title(content or "Screenshot") if titled else None, touch=True)
         self._chat_streams[cid] = rid
-        task = asyncio.create_task(self._run_chat(adapter, rid, cid, assistant["id"], provider_id))
+        task = asyncio.create_task(self._run_chat(adapter, rid, cid, assistant["id"], provider_id, model))
         self._requests[rid] = (provider_id, task)
         conv = self.chat_get(cid)
         self.hub.publish("chat.updated", conv)
         return {"request_id": rid, "conversation": conv, "user_message": user, "assistant_message": assistant}
 
-    async def _run_chat(self, adapter, rid: str, cid: str, mid: str, pid: str) -> None:
+    async def _run_chat(self, adapter, rid: str, cid: str, mid: str, pid: str, model: Optional[str] = None) -> None:
         parts: list[str] = []
         buffered = ""
         last_flush = time.monotonic()
@@ -992,6 +999,9 @@ class SessionService:
                     flush()
                     self.db.update_chat_message(mid, status="completed", content="".join(parts), usage=ev.usage, model=ev.model)
                     self.hub.publish("chat.completed", {**ids, "usage": ev.usage, "model": ev.model})
+                    # A resume without its short profile yet (uploaded with no model connected, or
+                    # the first try failed): made now, with this model, after its answer.
+                    self.condense_soon(pid, model)
                 elif ev.type == "error" and ev.error is not None:
                     fail(ev.error.to_dict())
                     return
@@ -1008,48 +1018,138 @@ class SessionService:
             # A conversation deleted mid-answer has no row left to touch; the update is then a no-op.
             self.db.update_chat(cid, touch=True)
 
-    # ================================================================== résumé
-    def resume_info(self) -> Optional[dict]:
-        """What the UI shows about the stored résumé (never the whole text unless asked for)."""
-        r = self.db.get_setting("resume")
-        if not r or not r.get("text"):
-            return None
-        text = r["text"]
-        return {"file_name": r.get("file_name") or "Résumé", "uploaded_at": r.get("uploaded_at"), "enabled": bool(r.get("enabled", True)),
-                "truncated": bool(r.get("truncated")), "characters": len(text), "words": len(text.split()), "text": text}
-
-    def resume_set(self, file_name: str, data: bytes) -> dict:
+    # ================================================================== resume and job
+    # The store is profile.py; these wrap it so its refusals reach the UI as ordinary messages.
+    @staticmethod
+    def _profile(action, *args):
         try:
-            text, truncated = resume_file.extract_text(file_name, data)
+            return action(*args)
         except resume_file.ResumeError as exc:
             raise EngineError(str(exc), 422) from exc
-        name = " ".join(file_name.replace("\\", "/").split("/")[-1].split())[:120]
-        self.db.set_setting("resume", {"file_name": name, "text": text, "truncated": truncated, "uploaded_at": int(time.time() * 1000), "enabled": True})
-        self.hub.publish("resume.updated", {})
-        return self.resume_info()  # type: ignore[return-value]
+        except ProfileNotFound as exc:
+            raise EngineError(str(exc), 404) from exc
 
-    def resume_enable(self, enabled: bool) -> dict:
-        r = self.db.get_setting("resume")
-        if not r or not r.get("text"):
-            raise EngineError("No résumé has been uploaded.", 404)
-        self.db.set_setting("resume", {**r, "enabled": bool(enabled)})
-        self.hub.publish("resume.updated", {})
-        return self.resume_info()  # type: ignore[return-value]
+    def resumes_info(self) -> dict:
+        return self.profile.info()
 
-    def resume_delete(self) -> None:
-        self.db.set_setting("resume", None)
-        self.hub.publish("resume.updated", {})
+    async def resume_add(self, file_name: str, data: bytes, provider_id: Optional[str] = None, model: Optional[str] = None) -> dict:
+        # Reading a file (and recognizing the text of a scan) takes a moment: off the event loop.
+        extracted = await asyncio.to_thread(self._profile, resume_file.extract_text, file_name, data)
+        self._profile(self.profile.add, file_name, extracted, data)
+        self.condense_soon(provider_id, model)  # read once, condensed once, right away
+        return self.profile.info()
+
+    def resume_file(self, rid: str) -> tuple[Path, str, str]:
+        """The resume's file as it was uploaded (path, media type, name)."""
+        return self._profile(self.profile.file, rid)
+
+    def resume_open(self, rid: str) -> None:
+        """Open the resume's file in the program Windows uses for it (Word for a .docx)."""
+        path, _, _ = self.resume_file(rid)
+        try:
+            if sys.platform == "win32":
+                os.startfile(path)  # noqa: S606 - our own file, in our own data folder
+            else:
+                subprocess.Popen(["open" if sys.platform == "darwin" else "xdg-open", str(path)])  # noqa: S603
+        except OSError as exc:
+            raise EngineError(f"The file could not be opened: {exc}", 500) from exc
+
+    def resume_update(self, rid: str, label: Optional[str], text: Optional[str], revert: bool) -> dict:
+        self._profile(self.profile.update, rid, label, text, revert)
+        self.condense_soon()
+        return self.profile.info()
+
+    def resume_select(self, active_id: Optional[str], enabled: Optional[bool]) -> dict:
+        return self._profile(self.profile.select, active_id, enabled)
+
+    def resume_delete(self, rid: str) -> dict:
+        return self._profile(self.profile.delete, rid)
+
+    def job_set(self, title: Optional[str], text: str, provider_id: Optional[str] = None, model: Optional[str] = None) -> dict:
+        self._profile(self.profile.set_job, title, text)
+        self.condense_soon(provider_id, model)
+        return self.profile.info()
+
+    async def job_add_file(self, file_name: str, data: bytes, title: Optional[str], provider_id: Optional[str] = None, model: Optional[str] = None) -> dict:
+        extracted = await asyncio.to_thread(self._profile, resume_file.extract_text, file_name, data, resume_file.MAX_JOB_CHARS)
+        self._profile(self.profile.add_job_file, file_name, extracted, title)
+        self.condense_soon(provider_id, model)
+        return self.profile.info()
+
+    def condense_again(self, provider_id: Optional[str] = None, model: Optional[str] = None) -> dict:
+        """The user asked for the short profile now (after a failure)."""
+        self.profile.forget_failures()
+        self.condense_soon(provider_id, model)
+        return self.profile.info()
+
+    # ------------------------------------------------------------------ the short profile
+    def condense_soon(self, provider_id: Optional[str] = None, model: Optional[str] = None) -> None:
+        """Condense the resume (and the job) once, in the background, with the given model (the one
+        the Custom chat uses) or the first connected one. Nothing waits for it: until it is made, the
+        full text goes, and a failure is tried again after a while."""
+        targets = self.profile.condense_targets()
+        if not targets:
+            return
+        chosen = self._condense_model(provider_id, model)
+        if chosen is None:
+            return  # no model connected yet: made later, with the first Custom chat answer
+        started = False
+        for kind, text, source in targets:
+            if self.profile.claim(source):
+                task = asyncio.get_running_loop().create_task(self._condense(kind, text, source, *chosen))
+                self._condensing.add(task)
+                task.add_done_callback(self._condensing.discard)
+                started = True
+        if started:
+            self.hub.publish("resume.updated", {})  # the card shows that it is being made
+
+    def _condense_model(self, provider_id: Optional[str], model: Optional[str]) -> Optional[tuple[str, str]]:
+        order = ([provider_id] if provider_id else []) + [pid for pid in self.providers.configs if pid != provider_id]
+        for pid in order:
+            if pid not in self.providers.configs:
+                continue
+            info = self.providers.info(pid)
+            if info["status"] in ("not_configured", "disabled"):
+                continue
+            chosen = ((model or "").strip() if pid == provider_id else "") or info["model"]
+            if chosen:
+                return pid, chosen
+        return None
+
+    async def _condense(self, kind: str, text: str, source: str, provider_id: str, model: str) -> None:
+        system, prompt = resume_file.condense_prompt(kind, text)
+        try:
+            adapter = self.providers.adapter(provider_id)
+            out = await asyncio.wait_for(adapter.complete(PromptRequest(prompt=prompt, model=model, system=system, max_tokens=900)), CONDENSE_TIMEOUT_S)
+            short = resume_file.clean_condensed(out)
+            if short is None:
+                raise ValueError("no usable profile in the answer")
+            if self.profile.set_condensed(kind, source, short, provider_id, model):
+                log.info("%s condensed with %s (%s): %d words to %d", kind, provider_id, model, len(text.split()), len(short.split()))
+        except Exception as exc:  # noqa: BLE001 - any failure: the full text keeps going until it works
+            reason = exc.kind if isinstance(exc, ProviderError) else type(exc).__name__
+            log.warning("condensing the %s with %s (%s) failed: %s", kind, provider_id, model, reason)
+            self.profile.condense_failed(source)
+
+    def job_enable(self, enabled: bool) -> dict:
+        return self._profile(self.profile.job_enable, enabled)
+
+    def job_delete(self) -> dict:
+        return self.profile.delete_job()
+
+    def chat_context(self) -> Optional[dict]:
+        """What goes into the first message of a new conversation on a chat website, or None."""
+        return self.profile.chat_context()
 
     def _with_resume(self, system: str) -> str:
-        """Add the résumé to a system prompt when the user has one and has it switched on."""
-        r = self.db.get_setting("resume")
-        block = resume_file.prompt_block(r.get("text")) if r and r.get("enabled", True) else ""
+        """Add the resume and the job to a system prompt, each while it is there and switched on."""
+        block = self.profile.prompt_block()
         return f"{system}\n\n{block}" if block else system
 
     # ================================================================== privacy
     async def purge_all(self) -> None:
         await self.stop_listening()
-        self.resume_delete()
+        self.profile.purge()
         shots = self.db.purge_all()
         self._delete_screenshot_files(shots)
         self._engines.clear()
@@ -1061,6 +1161,8 @@ CHAT_SYSTEM_PROMPT = (
     "Format answers in Markdown: fenced code blocks with a language tag for code, and LaTeX between $ or $$ for mathematics."
 )
 # Context sent with each chat turn: the most recent messages, within a size a small free model accepts.
+# Condensing the resume is one request; a slow free model gets this long before it counts as failed.
+CONDENSE_TIMEOUT_S = 120
 CHAT_HISTORY_MESSAGES = 40
 CHAT_HISTORY_CHARS = 120_000
 THINK_OPEN, THINK_CLOSE = "<think>", "</think>"

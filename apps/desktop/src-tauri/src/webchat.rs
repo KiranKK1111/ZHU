@@ -10,6 +10,9 @@
 //!   webviews by label, so a chat webview never matches it. A chat page therefore cannot call
 //!   `engine_info` (the engine token) or any other command.
 //! * Navigation is limited to https, so a page cannot open ZHU's own bundled UI inside a chat tab.
+//! * New windows (`new_window`): a sign-in pop-up ("Continue with Google") opens as WebView2's own
+//!   pop-up in the same profile, with no IPC; a link meant for a new tab opens in the user's normal
+//!   browser; anything else is refused.
 //! * ZHU fills the message box and attaches screenshots; it never signs in and never presses Send.
 //!   The scripts it runs in a page are `webchat_inject.js`, with data passed as JSON literals, and
 //!   a fixed style rule that keeps the pointer the arrow (`POINTER_JS`), as everywhere in ZHU.
@@ -20,7 +23,7 @@ use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{mpsc, Mutex};
 use std::time::{Duration, Instant};
-use tauri::webview::{PageLoadEvent, WebviewBuilder};
+use tauri::webview::{NewWindowResponse, PageLoadEvent, WebviewBuilder};
 use tauri::{AppHandle, Emitter, LogicalPosition, LogicalSize, Manager, Url, Webview, WebviewUrl};
 
 const INJECT_JS: &str = include_str!("webchat_inject.js");
@@ -32,6 +35,8 @@ const STAGE_CHUNK: usize = 256 * 1024;
 const MAX_IMAGE_B64: usize = 12 * 1024 * 1024;
 const MAX_IMAGES: usize = 10;
 const MAX_TEXT: usize = 100_000;
+/// The resume and the job with their instruction (the engine keeps at most 24,000 + 12,000 characters).
+const MAX_CONTEXT: usize = 80_000;
 
 #[derive(Clone, Copy, Debug, Deserialize)]
 pub struct Bounds {
@@ -59,6 +64,8 @@ pub struct WebChatState {
     /// next question would be appended to ZHU's own stale draft instead of replacing it.
     last_text: Mutex<HashMap<String, String>>,
     job: AtomicU64,
+    /// When a chat page last had a link opened in the user's browser (at most one a second).
+    browser_opened: Mutex<Option<Instant>>,
 }
 
 #[derive(Clone, Serialize)]
@@ -95,6 +102,47 @@ pub struct DeliverPayload {
     /// Attach images even if they were already attached to this page (manual "send again").
     #[serde(default)]
     force: bool,
+    /// The user's resume (and job), for the first message of a new chat. The page helper decides
+    /// whether this chat needs it (see `contextPlan` in webchat_inject.js).
+    #[serde(default)]
+    context: Option<DeliverContext>,
+}
+
+#[derive(Deserialize, Serialize)]
+pub struct DeliverContext {
+    /// "file": attached as a text file, with `note` in the message; "text": in the message itself.
+    mode: String,
+    /// Add it even to a chat under way (the user pressed "Add resume").
+    #[serde(default)]
+    force: bool,
+    /// In the file name and the first line: how the page tells it is already in the chat.
+    marker: String,
+    file_name: String,
+    text: String,
+    note: String,
+    question_heading: String,
+    /// The path of the tab's own start page, a new chat on sites ZHU has no addresses for.
+    #[serde(default)]
+    home: String,
+}
+
+impl DeliverContext {
+    fn check(&self) -> Result<(), String> {
+        let plain = |s: &str, max: usize, extra: &[char]| !s.is_empty() && s.len() <= max && s.chars().all(|c| c.is_ascii_alphanumeric() || extra.contains(&c));
+        if self.mode != "file" && self.mode != "text" {
+            return Err("unknown way to add the resume".into());
+        }
+        if !plain(&self.marker, 64, &['-']) {
+            return Err("invalid resume marker".into());
+        }
+        if !plain(&self.file_name, 120, &['-', '_', '.']) || !self.file_name.ends_with(".txt") {
+            return Err("invalid resume file name".into());
+        }
+        if self.text.is_empty() || self.text.len() > MAX_CONTEXT || self.note.len() > 1_000 || self.question_heading.len() > 200 || self.home.len() > 500 {
+            return Err("the resume is too long to add".into());
+        }
+        Ok(())
+    }
 }
 
 fn label_for(id: &str) -> Result<String, String> {
@@ -121,6 +169,55 @@ fn navigation_allowed(url: &Url) -> bool {
         "about" => true,
         _ => false,
     }
+}
+
+/// What happens when a chat page asks for a new window (`window.open`, or a link to a new tab).
+#[derive(Debug, PartialEq, Eq)]
+enum NewWindow {
+    /// A sign-in window: opened by WebView2 itself, in the chat profile. It keeps its link to the
+    /// page that opened it, which "Continue with Google / Microsoft / Apple" needs to hand the
+    /// sign-in back, and it closes itself when the sign-in is done.
+    Popup,
+    /// An ordinary link meant for a new tab (a source in an answer): the user's normal browser.
+    Browser,
+    Deny,
+}
+
+/// `sized`: the page gave the window a size or position, as sign-in pop-ups do and links do not.
+/// Without one, a page on a sign-in host or path still counts as a sign-in window.
+fn new_window(url: &Url, sized: bool) -> NewWindow {
+    if !navigation_allowed(url) {
+        return NewWindow::Deny;
+    }
+    if url.scheme() != "https" {
+        // about:blank, filled in by the page's script afterwards: only as a pop-up.
+        return if sized { NewWindow::Popup } else { NewWindow::Deny };
+    }
+    if sized || looks_like_sign_in(url) {
+        NewWindow::Popup
+    } else {
+        NewWindow::Browser
+    }
+}
+
+fn looks_like_sign_in(url: &Url) -> bool {
+    let host = url.host_str().unwrap_or_default();
+    let host_hint = ["accounts.", "login.", "auth.", "signin.", "appleid.", "sso."].iter().any(|p| host.starts_with(p));
+    let path = url.path().to_ascii_lowercase();
+    let path_hint = ["/oauth", "/authorize", "/login", "/signin", "/sign_in", "/sign-in", "/auth/", "/sso"].iter().any(|p| path.contains(p));
+    host_hint || path_hint
+}
+
+fn open_in_browser(app: &AppHandle, url: &Url) {
+    use tauri_plugin_opener::OpenerExt;
+    let state = app.state::<WebChatState>();
+    let mut last = state.browser_opened.lock().unwrap();
+    // A page that opens windows in a loop gets one browser tab a second, not a flood.
+    if last.is_some_and(|t| t.elapsed() < Duration::from_secs(1)) {
+        return;
+    }
+    *last = Some(Instant::now());
+    let _ = app.opener().open_url(url.as_str(), None::<&str>);
 }
 
 fn chat_webviews(app: &AppHandle) -> Vec<Webview> {
@@ -163,10 +260,20 @@ pub async fn webchat_open(app: AppHandle, id: String, url: String) -> Result<boo
 
     let (load_app, load_id) = (app.clone(), id.clone());
     let (title_app, title_id) = (app.clone(), id.clone());
+    let popup_app = app.clone();
     let builder = WebviewBuilder::new(&label, WebviewUrl::External(url))
         .data_directory(profile)
         .additional_browser_args(&browser_args)
         .on_navigation(navigation_allowed)
+        // Without this handler every new window is refused, and with it sign-in pop-ups.
+        .on_new_window(move |url, features| match new_window(&url, features.size().is_some() || features.position().is_some()) {
+            NewWindow::Popup => NewWindowResponse::Allow,
+            NewWindow::Browser => {
+                open_in_browser(&popup_app, &url);
+                NewWindowResponse::Deny
+            }
+            NewWindow::Deny => NewWindowResponse::Deny,
+        })
         .on_page_load(move |wv, payload| {
             let finished = matches!(payload.event(), PageLoadEvent::Finished);
             // Every page gets the arrow as it starts, and again once it has loaded (in case the
@@ -320,6 +427,9 @@ pub async fn webchat_deliver(app: AppHandle, id: String, payload: DeliverPayload
             return Err("only images can be attached".into());
         }
     }
+    if let Some(ctx) = &payload.context {
+        ctx.check()?;
+    }
     let state = app.state::<WebChatState>();
     let job = state.job.fetch_add(1, Ordering::SeqCst) + 1;
     // A page that finished loading a while ago and still has no message box is most likely a
@@ -338,6 +448,7 @@ pub async fn webchat_deliver(app: AppHandle, id: String, payload: DeliverPayload
             "previous": previous,
             "force": payload.force,
             "images": payload.images.iter().map(|i| json!({"id": i.id, "name": i.name, "mime": i.mime})).collect::<Vec<_>>(),
+            "context": payload.context,
         });
         let install = |wv: &Webview| -> Result<(), String> {
             wv.eval(INJECT_JS).map_err(|e| e.to_string())?;
@@ -381,7 +492,13 @@ pub async fn webchat_deliver(app: AppHandle, id: String, payload: DeliverPayload
                     continue;
                 }
                 if status.get("text").and_then(Value::as_str) == Some("replace") {
-                    app2.state::<WebChatState>().last_text.lock().unwrap().insert(tab_id.clone(), text.clone());
+                    // The box may hold more than the question (the resume, or the note about it).
+                    let inserted = status.get("inserted").and_then(Value::as_str).map(str::to_string).unwrap_or_else(|| text.clone());
+                    app2.state::<WebChatState>().last_text.lock().unwrap().insert(tab_id.clone(), inserted);
+                }
+                let mut status = status;
+                if let Some(obj) = status.as_object_mut() {
+                    obj.remove("inserted"); // the window has no use for a copy of the whole text
                 }
                 return Ok(status);
             }
@@ -480,11 +597,62 @@ mod tests {
     }
 
     #[test]
+    fn the_resume_part_of_a_delivery_is_checked() {
+        let ctx = |mode: &str, marker: &str, file_name: &str, text: &str| DeliverContext {
+            mode: mode.into(),
+            force: false,
+            marker: marker.into(),
+            file_name: file_name.into(),
+            text: text.into(),
+            note: "My resume is attached.".into(),
+            question_heading: "=== QUESTION ===".into(),
+            home: "/".into(),
+        };
+        assert!(ctx("file", "zhu-1a2b3c4d", "resume-and-job-zhu-1a2b3c4d.txt", "About me").check().is_ok());
+        assert!(ctx("text", "zhu-1a2b3c4d", "resume-zhu-1a2b3c4d.txt", "About me").check().is_ok());
+        // The marker goes into a CSS selector in the page and the name into a file: plain characters only.
+        for (mode, marker, name) in [
+            ("both", "zhu-1", "a.txt"),
+            ("file", "zhu\"],*", "a.txt"),
+            ("file", "", "a.txt"),
+            ("file", "zhu-1", "../a.txt"),
+            ("file", "zhu-1", "a.exe"),
+            ("file", "zhu-1", "a b.txt"),
+        ] {
+            assert!(ctx(mode, marker, name, "About me").check().is_err(), "{mode} {marker} {name}");
+        }
+        assert!(ctx("file", "zhu-1", "a.txt", "").check().is_err());
+        assert!(ctx("file", "zhu-1", "a.txt", &"x".repeat(MAX_CONTEXT + 1)).check().is_err());
+    }
+
+    #[test]
     fn navigation_stays_on_the_web() {
         let ok = |s: &str| navigation_allowed(&Url::parse(s).unwrap());
         assert!(ok("https://accounts.google.com/o/oauth2/auth") && ok("about:blank"));
         // ZHU's own UI (which has IPC access) must never load inside a chat tab.
         assert!(!ok("https://tauri.localhost/index.html") && !ok("http://tauri.localhost/index.html"));
         assert!(!ok("http://example.com") && !ok("file:///C:/x") && !ok("tauri://localhost") && !ok("data:text/html,x"));
+    }
+
+    #[test]
+    fn sign_in_pop_ups_open_and_links_go_to_the_browser() {
+        let kind = |s: &str, sized: bool| new_window(&Url::parse(s).unwrap(), sized);
+        // "Continue with Google / Microsoft / Apple": a sized window, or a sign-in page without a size.
+        assert_eq!(kind("https://accounts.google.com/o/oauth2/v2/auth?client_id=x", true), NewWindow::Popup);
+        assert_eq!(kind("https://accounts.google.com/o/oauth2/v2/auth?client_id=x", false), NewWindow::Popup);
+        assert_eq!(kind("https://login.microsoftonline.com/common/oauth2/v2.0/authorize", false), NewWindow::Popup);
+        assert_eq!(kind("https://appleid.apple.com/auth/authorize", false), NewWindow::Popup);
+        assert_eq!(kind("https://chat.example.com/api/auth/signin/google", false), NewWindow::Popup);
+        assert_eq!(kind("https://www.example.com/anything", true), NewWindow::Popup);
+        assert_eq!(kind("about:blank", true), NewWindow::Popup);
+        // A source link in an answer: the normal browser.
+        assert_eq!(kind("https://en.wikipedia.org/wiki/Mutex", false), NewWindow::Browser);
+        assert_eq!(kind("https://docs.python.org/3/library/asyncio.html", false), NewWindow::Browser);
+        // Never: other schemes, ZHU's own UI, or an unsized blank window.
+        assert_eq!(kind("about:blank", false), NewWindow::Deny);
+        assert_eq!(kind("http://example.com/login", true), NewWindow::Deny);
+        assert_eq!(kind("https://tauri.localhost/index.html", true), NewWindow::Deny);
+        assert_eq!(kind("file:///C:/Windows/notepad.exe", true), NewWindow::Deny);
+        assert_eq!(kind("ms-settings:privacy", false), NewWindow::Deny);
     }
 }

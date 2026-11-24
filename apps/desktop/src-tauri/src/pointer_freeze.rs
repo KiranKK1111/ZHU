@@ -37,6 +37,11 @@
 //!     the arrow), when ZHU's window is minimized, when another window covers ZHU under the arrow,
 //!     when another program or a pen or touch screen moves the pointer, and when the stand-in has
 //!     not answered for a second.
+//!   * A touchpad's two-finger swipe goes to the window under the real pointer, which stands
+//!     beside the page, and programs that scroll smoothly take it from the touchpad without the
+//!     mouse hook seeing it. So while the page is frozen, a window of ZHU's of one pixel (the
+//!     catcher, left out of captures and all but clear) stands under the real pointer: the swipe
+//!     comes to it as wheel turns, and goes on to the page under the arrow.
 //!
 //! Limits: dragging files or text out of ZHU into another program needs the real pointer, and a
 //! window dragged by its title bar does not snap to the screen's edges.
@@ -377,7 +382,7 @@ pub(crate) mod machine {
         }
 
         fn frozen(&mut self, event: Option<Event>, ctx: &Context, mut arrow: Pt, mut held: u8, mut settle: Option<(Glide, Pt)>) -> Out {
-            if !ctx.active || ctx.foreign {
+            if !ctx.active || (ctx.foreign && !is_wheel(event)) {
                 // At once: the stand-in cannot draw, or something else moves the pointer.
                 self.keep_releases(held, event);
                 return self.free_at(arrow);
@@ -427,7 +432,7 @@ pub(crate) mod machine {
         }
 
         fn leaving(&mut self, event: Option<Event>, ctx: &Context, mut arrow: Pt, glide: Glide, forced: bool) -> Out {
-            if !ctx.active || ctx.foreign {
+            if !ctx.active || (ctx.foreign && !is_wheel(event)) {
                 self.keep_releases(0, event);
                 return self.free_at(arrow);
             }
@@ -507,6 +512,13 @@ pub(crate) mod machine {
                 _ => {}
             }
         }
+    }
+
+    /// A wheel turn moves no pointer, so one from elsewhere is no reason to let go: a touchpad's
+    /// two-finger swipe can reach the hook as wheel turns Windows makes itself (marked as made by
+    /// a program), and it is meant for the page under the arrow like the wheel's own.
+    fn is_wheel(event: Option<Event>) -> bool {
+        matches!(event, Some(Event::Wheel { .. }))
     }
 
     /// Windows would have moved the pointer from where it is to `to`: that movement, with the
@@ -728,6 +740,24 @@ pub(crate) mod machine {
             let mut m = Machine::new();
             m.step(Event::Move(pt(150, 150)), &ctx(pt(50, 150)));
             assert_eq!(m.step(Event::Wheel { delta: -120, horizontal: false }, &ctx(pt(50, 150))), post(Post::Wheel { delta: -120, horizontal: false, at: pt(150, 150) }));
+        }
+
+        #[test]
+        fn a_wheel_turn_from_elsewhere_scrolls_the_page_and_keeps_it_frozen() {
+            // A touchpad's two-finger swipe, as small wheel turns Windows makes itself.
+            let mut m = frozen_at(pt(200, 200));
+            let foreign = Context { foreign: true, ..ctx(pt(90, 200)) };
+            assert_eq!(m.step(Event::Wheel { delta: -24, horizontal: false }, &foreign), post(Post::Wheel { delta: -24, horizontal: false, at: pt(200, 200) }));
+            assert_eq!(m.step(Event::Wheel { delta: 16, horizontal: true }, &foreign), post(Post::Wheel { delta: 16, horizontal: true, at: pt(200, 200) }));
+            assert!(m.is_frozen());
+            // A movement from elsewhere still lets go at once.
+            assert_eq!(m.step(Event::Move(pt(300, 300)), &foreign), put(pt(200, 200), Post::Leave(pt(200, 200))));
+
+            // On the way out, it goes where the arrow is, like the wheel's own.
+            let mut m = frozen_at(pt(480, 200));
+            m.step(Event::Move(pt(120, 200)), &at(pt(90, 200), 1000));
+            let wheel = m.step(Event::Wheel { delta: -24, horizontal: false }, &Context { foreign: true, ..at(pt(200, 200), 1040) });
+            assert_eq!(wheel, Out { replay: true, ..put(pt(510, 200), Post::Leave(pt(510, 200))) });
         }
 
         #[test]
@@ -977,6 +1007,15 @@ mod imp {
     static ACCEPT_INJECTED: AtomicBool = AtomicBool::new(false);
     /// A press or wheel turn held back to be made again at the arrow, on the hook's thread.
     static REPLAY: Mutex<Option<Replay>> = Mutex::new(None);
+    /// Wheel turns over the frozen page since freezing started, by the way they came: through the
+    /// hook from the mouse, through the hook made by Windows or a program, and to the catcher
+    /// (a touchpad's swipe). Logged when freezing ends.
+    static WHEELS: [AtomicU32; 3] = [AtomicU32::new(0), AtomicU32::new(0), AtomicU32::new(0)];
+    /// The pointer's shape when the catcher went under it, which it keeps (0: the arrow).
+    static CATCHER_CURSOR: AtomicIsize = AtomicIsize::new(0);
+    const WHEEL_MOUSE: usize = 0;
+    const WHEEL_MADE: usize = 1;
+    const WHEEL_CAUGHT: usize = 2;
 
     #[derive(Clone, Copy)]
     struct Replay {
@@ -1034,6 +1073,9 @@ mod imp {
                     if let (Ok(handle), Ok(mut join)) = (handle, HOOK_JOIN.lock()) {
                         *join = Some(handle);
                     }
+                    for count in &WHEELS {
+                        count.store(0, Ordering::Relaxed);
+                    }
                     super::log("frozen over ZHU while it is hidden");
                 }
                 _ => super::log("the mouse hook could not be installed; the pointer is not frozen"),
@@ -1055,6 +1097,10 @@ mod imp {
                 let _ = handle.join();
             }
             HOOK_THREAD.store(0, Ordering::SeqCst);
+            let [mouse, made, caught] = WHEELS.each_ref().map(|c| c.swap(0, Ordering::Relaxed));
+            if mouse + made + caught > 0 {
+                super::log(&format!("wheel turns over the page while frozen: {mouse} from the mouse, {made} made by Windows or a program, {caught} through the catcher (touchpad)"));
+            }
             super::log("free again");
         }
         let stand_in = STAND_IN.load(Ordering::SeqCst);
@@ -1229,6 +1275,9 @@ mod imp {
         }
         let out = {
             let Ok(mut machine) = MACHINE.lock() else { return false };
+            if matches!(event, Event::Wheel { .. }) && machine.is_frozen() {
+                WHEELS[if injected || touch { WHEEL_MADE } else { WHEEL_MOUSE }].fetch_add(1, Ordering::Relaxed);
+            }
             if matches!(event, Event::Down(_)) && !foreign && machine.is_frozen() && !in_front() {
                 // A click into ZHU while another program has the keyboard. Windows lets a program
                 // come forward while it handles the user's own input, which this hook is doing; if
@@ -1439,6 +1488,11 @@ mod imp {
         /// Moving the window with the arrow (its title bar is dragged): where the arrow and the
         /// window's top-left corner were when the button went down.
         window_drag: Option<(Pt, i32, i32)>,
+        /// The catcher (see `make_catcher`), whether the page is frozen (it stands under the real
+        /// pointer then), and where it stands (None while it is hidden).
+        catcher: Option<isize>,
+        catching: bool,
+        catcher_at: Option<Pt>,
     }
 
     thread_local! {
@@ -1468,6 +1522,11 @@ mod imp {
             if !in_captures {
                 let _ = SetWindowDisplayAffinity(hwnd, WDA_EXCLUDEFROMCAPTURE);
             }
+            let catcher = make_catcher(module);
+            if catcher.is_none() {
+                super::log("the touchpad catcher could not be made; two-finger scrolling over ZHU goes to the window under the real pointer");
+            }
+            STATE.with(|s| s.borrow_mut().catcher = catcher.map(|c| c.0 as isize));
             SetTimer(Some(hwnd), 1, 100, None);
             refresh();
             STAND_IN.store(hwnd.0 as isize, Ordering::SeqCst);
@@ -1482,7 +1541,14 @@ mod imp {
 
     unsafe extern "system" fn stand_in_proc(hwnd: HWND, message: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
         match message {
-            WM_TIMER => refresh(),
+            WM_TIMER => {
+                refresh();
+                STATE.with(|s| {
+                    if let Ok(mut s) = s.try_borrow_mut() {
+                        s.place_catcher(true);
+                    }
+                });
+            }
             MSG_ENTER..=MSG_DRAG_WINDOW => {
                 let mut at = unpack(lparam.0);
                 if message == MSG_MOVE || message == MSG_DRAW {
@@ -1500,6 +1566,11 @@ mod imp {
                 STATE.with(|s| {
                     if let Ok(mut s) = s.try_borrow_mut() {
                         s.gone(hwnd);
+                        if let Some(catcher) = s.catcher.take() {
+                            unsafe {
+                                let _ = DestroyWindow(HWND(catcher as _));
+                            }
+                        }
                     }
                 });
                 unsafe {
@@ -1510,6 +1581,76 @@ mod imp {
             _ => return unsafe { DefWindowProcW(hwnd, message, wparam, lparam) },
         }
         LRESULT(0)
+    }
+
+    /// The catcher: a window of one pixel that stands under the real pointer while the page is
+    /// frozen, left out of captures and all but clear. A touchpad's two-finger swipe goes to the
+    /// window under the real pointer, and not through the mouse hook when that window scrolls
+    /// smoothly by itself (browsers and editors take it from the touchpad directly), so it would
+    /// scroll the program beside ZHU and not ZHU. Standing there, the catcher gets the swipe as
+    /// wheel turns instead and hands them to the page under the arrow.
+    fn make_catcher(module: windows::Win32::Foundation::HMODULE) -> Option<HWND> {
+        unsafe {
+            let class = w!("ZhuPointerCatcher");
+            // No cursor of its own: it sets the one the pointer had (WM_SETCURSOR).
+            let wc = WNDCLASSW { lpfnWndProc: Some(catcher_proc), hInstance: module.into(), lpszClassName: class, ..Default::default() };
+            RegisterClassW(&wc); // already registered on a second start: fine
+            let ex = WS_EX_LAYERED | WS_EX_TOOLWINDOW | WS_EX_TOPMOST | WS_EX_NOACTIVATE;
+            let hwnd = CreateWindowExW(ex, class, w!(""), WS_POPUP, 0, 0, 1, 1, None, None, Some(module.into()), None).ok()?;
+            // Nearly clear: a window that is fully clear is not there for the pointer.
+            let _ = SetLayeredWindowAttributes(hwnd, COLORREF(0), 1, LWA_ALPHA);
+            let _ = SetWindowDisplayAffinity(hwnd, WDA_EXCLUDEFROMCAPTURE);
+            Some(hwnd)
+        }
+    }
+
+    unsafe extern "system" fn catcher_proc(hwnd: HWND, message: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
+        match message {
+            WM_MOUSEWHEEL | WM_MOUSEHWHEEL => {
+                // The turn in the high word; of the keys, Shift and Ctrl (a pinch comes as Ctrl and
+                // the wheel). Buttons are the arrow's, not the real pointer's.
+                let delta = (wparam.0 >> 16) & 0xFFFF;
+                let keys = wparam.0 & (MK_SHIFT | MK_CONTROL);
+                STATE.with(|s| {
+                    if let Ok(s) = s.try_borrow() {
+                        if s.catching {
+                            WHEELS[WHEEL_CAUGHT].fetch_add(1, Ordering::Relaxed);
+                            s.wheel(delta, message == WM_MOUSEHWHEEL, keys, s.at);
+                        }
+                    }
+                });
+                LRESULT(0)
+            }
+            // The window under the pointer gives its shape, or Windows shows its busy one: the
+            // shape the pointer had, so viewers see nothing change.
+            WM_SETCURSOR => {
+                set_catcher_cursor();
+                LRESULT(1)
+            }
+            WM_MOUSEACTIVATE => LRESULT(MA_NOACTIVATE as isize),
+            _ => unsafe { DefWindowProcW(hwnd, message, wparam, lparam) },
+        }
+    }
+
+    /// Keeps the pointer's shape as it is now for the catcher (before it goes under the pointer).
+    fn keep_cursor_shape() {
+        let mut info = CURSORINFO { cbSize: std::mem::size_of::<CURSORINFO>() as u32, ..Default::default() };
+        let shown = unsafe { GetCursorInfo(&mut info) }.is_ok() && info.flags.0 & CURSOR_SHOWING.0 != 0 && !info.hCursor.is_invalid();
+        CATCHER_CURSOR.store(if shown { info.hCursor.0 as isize } else { 0 }, Ordering::SeqCst);
+        set_catcher_cursor();
+    }
+
+    /// The shape kept (Windows' own shapes are shared by all programs), or the arrow.
+    fn set_catcher_cursor() {
+        let kept = CATCHER_CURSOR.load(Ordering::SeqCst);
+        unsafe {
+            let shape = if kept != 0 { HCURSOR(kept as _) } else { LoadCursorW(None, IDC_ARROW).unwrap_or_default() };
+            let _ = SetCursor(Some(shape));
+            if kept != 0 && GetCursor() != shape {
+                // That program's own shape is gone: the arrow.
+                let _ = SetCursor(LoadCursorW(None, IDC_ARROW).ok());
+            }
+        }
     }
 
     /// Of movements waiting in a row, only the last matters (Windows does the same with its own),
@@ -1616,6 +1757,10 @@ mod imp {
                     } else {
                         self.moved(at);
                     }
+                    if message == MSG_ENTER {
+                        self.catching = true;
+                    }
+                    self.place_catcher(false);
                 }
                 MSG_PRESS => {
                     if let Some(b) = Button::from_index(wparam) {
@@ -1627,17 +1772,7 @@ mod imp {
                         self.release(b, at);
                     }
                 }
-                MSG_WHEEL => {
-                    let horizontal = wparam >> 16 != 0;
-                    let delta = wparam as u16 as usize;
-                    if let Some(target) = self.capture.map(|c| HWND(c as _)).or_else(|| zhu_window_at(at)) {
-                        let message = if horizontal { WM_MOUSEHWHEEL } else { WM_MOUSEWHEEL };
-                        // The wheel messages carry the point on the screen, not in the window.
-                        unsafe {
-                            let _ = PostMessageW(Some(target), message, WPARAM((delta << 16) | mouse_keys(self.held)), LPARAM(words(at.x, at.y)));
-                        }
-                    }
-                }
+                MSG_WHEEL => self.wheel(wparam as u16 as usize, wparam >> 16 != 0, 0, at),
                 MSG_AWAY => {
                     self.away();
                     self.at = at;
@@ -1650,6 +1785,50 @@ mod imp {
                 MSG_LEAVE => self.gone(arrow),
                 MSG_DRAG_WINDOW => self.start_window_drag(),
                 _ => {}
+            }
+        }
+
+        /// A wheel turn (`delta`, the signed turn as 16 bits) for the window under the arrow, or
+        /// for the one that got the press of the buttons held; `keys` adds Shift and Ctrl.
+        fn wheel(&self, delta: usize, horizontal: bool, keys: usize, at: Pt) {
+            if let Some(target) = self.capture.map(|c| HWND(c as _)).or_else(|| zhu_window_at(at)) {
+                let message = if horizontal { WM_MOUSEHWHEEL } else { WM_MOUSEWHEEL };
+                // The wheel messages carry the point on the screen, not in the window.
+                unsafe {
+                    let _ = PostMessageW(Some(target), message, WPARAM((delta << 16) | mouse_keys(self.held) | keys), LPARAM(words(at.x, at.y)));
+                }
+            }
+        }
+
+        /// The catcher stands under the real pointer while the page is frozen, and never on the
+        /// page itself (the real pointer crosses it while it settles): the arrow would find it
+        /// there instead of the page. `check_cover`: also when another window that stays on top
+        /// came over it.
+        fn place_catcher(&mut self, check_cover: bool) {
+            let Some(catcher) = self.catcher.map(|c| HWND(c as _)) else { return };
+            let real = cursor();
+            let on_page = ZONE.lock().map(|z| z.is_some_and(|z| z.contains(real))).unwrap_or(true);
+            if !self.catching || on_page {
+                self.hide_catcher();
+                return;
+            }
+            let covered = check_cover && unsafe { WindowFromPoint(POINT { x: real.x, y: real.y }) } != catcher;
+            if self.catcher_at.is_none() {
+                keep_cursor_shape();
+            }
+            if self.catcher_at != Some(real) || covered {
+                unsafe {
+                    let _ = SetWindowPos(catcher, Some(HWND_TOPMOST), real.x, real.y, 1, 1, SWP_NOACTIVATE | SWP_SHOWWINDOW);
+                }
+                self.catcher_at = Some(real);
+            }
+        }
+
+        fn hide_catcher(&mut self) {
+            if let (Some(catcher), Some(_)) = (self.catcher, self.catcher_at.take()) {
+                unsafe {
+                    let _ = ShowWindow(HWND(catcher as _), SW_HIDE);
+                }
             }
         }
 
@@ -1755,6 +1934,8 @@ mod imp {
         /// The arrow left the page: buttons still held are released where the arrow is, and the
         /// page no longer has the mouse.
         fn away(&mut self) {
+            self.catching = false;
+            self.hide_catcher();
             for b in Button::ALL {
                 if self.held & b.bit() != 0 {
                     self.release(b, self.at);

@@ -5,7 +5,7 @@ Engine settings are validated by Pydantic (`engine/zhu_engine/settings.py`), sto
 ## audio
 | Field | Default | Meaning |
 |---|---|---|
-| `microphone_enabled` / `system_enabled` | `true` / `true` | Which sources start with **Start listening** |
+| `microphone_enabled` / `system_enabled` | `true` / `true` | What ZHU listens to: both, or one of them. **Start listening** asks each time and saves the answer here; the hotkey and the tray start with it (Settings → Listening → Listen to). At least one stays on: a change that turns both off is refused. A change while listening starts or stops that source at once |
 | `microphone_device` / `system_device` | `null` (Windows default) | Stable device ID `microphone:<name>` / `system:<name>` |
 | `noise_reduction` | `true` | Soft noise gate (not a spectral denoiser) |
 | `source_labels` | Microphone / System audio | Labels shown in the transcript |

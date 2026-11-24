@@ -1,5 +1,6 @@
 import * as RDM from "@radix-ui/react-dropdown-menu";
 import * as RP from "@radix-ui/react-popover";
+import { Check } from "lucide-react";
 import type { ReactNode } from "react";
 import { cn } from "@/utils/cn";
 
@@ -28,6 +29,35 @@ export function MenuItem({ children, onSelect, danger, disabled, icon }: { child
     >
       {icon ? <span className="flex h-4 w-4 items-center justify-center text-fg-2">{icon}</span> : null}
       {children}
+    </RDM.Item>
+  );
+}
+
+/**
+ * A menu choice of two lines, every one the same size: an icon tile, the title with a line under
+ * it, and a column for a tick, so the tiles, the text and the ticks line up from row to row.
+ */
+export function MenuOption({ icon, title, description, marked, markLabel, onSelect }: { icon: ReactNode; title: string; description: string; marked?: boolean; markLabel?: string; onSelect: () => void }) {
+  return (
+    <RDM.Item
+      onSelect={onSelect}
+      className="group grid h-14 cursor-default select-none grid-cols-[40px_minmax(0,1fr)_16px] items-center gap-3 rounded-md px-2.5 outline-none data-[highlighted]:bg-hover"
+    >
+      <span className="flex h-9 w-10 items-center justify-center gap-0.5 rounded-md border border-border-subtle bg-surface-3 text-fg-2 transition-colors duration-fast group-data-[highlighted]:text-accent">
+        {icon}
+      </span>
+      <span className="min-w-0">
+        <span className="block truncate text-body font-medium text-fg">{title}</span>
+        <span className="block truncate text-caption text-fg-3">{description}</span>
+      </span>
+      <span className="flex h-4 w-4 items-center justify-center text-accent">
+        {marked ? (
+          <>
+            <Check className="h-4 w-4" aria-hidden />
+            {markLabel ? <span className="sr-only">{markLabel}</span> : null}
+          </>
+        ) : null}
+      </span>
     </RDM.Item>
   );
 }

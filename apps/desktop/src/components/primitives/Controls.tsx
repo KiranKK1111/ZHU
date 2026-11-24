@@ -111,11 +111,11 @@ export function Select({ value, onValueChange, options, placeholder, label, clas
   );
 }
 
-export function Segmented<T extends string>({ value, onValueChange, options, label, size = "md" }: { value: T; onValueChange: (v: T) => void; options: { value: T; label: ReactNode; ariaLabel?: string }[]; label: string; size?: "sm" | "md" }) {
+export function Segmented<T extends string>({ value, onValueChange, options, label, size = "md" }: { value: T | null; onValueChange: (v: T) => void; options: { value: T; label: ReactNode; ariaLabel?: string }[]; label: string; size?: "sm" | "md" }) {
   return (
     <RTG.Root
       type="single"
-      value={value}
+      value={value ?? ""}
       onValueChange={(v) => v && onValueChange(v as T)}
       aria-label={label}
       className="inline-flex items-center gap-0.5 rounded-md border border-border-subtle bg-surface-2 p-0.5"

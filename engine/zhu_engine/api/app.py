@@ -212,9 +212,13 @@ def create_app(service: SessionService, token: str, port_ref: dict) -> FastAPI:
     @app.put("/api/settings")
     async def put_settings(patch: dict[str, Any]):
         try:
-            return s.update_settings(patch).model_dump()
+            new = s.update_settings(patch)
         except ValueError as exc:
             raise HTTPException(422, str(exc)) from exc
+        # A change of what to listen to (system audio, microphone, both) applies at once while listening.
+        if isinstance(patch.get("audio"), dict) and {"microphone_enabled", "system_enabled"} & set(patch["audio"]):
+            await s.apply_chosen_sources()
+        return new.model_dump()
 
     @app.get("/api/vocabulary")
     async def get_vocab():

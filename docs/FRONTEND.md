@@ -9,7 +9,7 @@ main.tsx ─ picks the root by window label (main | bubble: the floating icon sh
 ├── MainApp ── AppProviders (React Query, prefs/theme, toasts) ── EngineGate (starting / failed / ready)
 │   ├── ModelSetup                  first-run, one-time model download (shown only while no model is installed)
 │   └── AppShell
-│       ├── TitleBar                drag region · session name · ListeningControl (start · live state · pause · stop · new session) · OpacityButton · HideFromBarsButton · WindowControls
+│       ├── TitleBar                drag region · session name · ListeningControl (start, with a menu of what to listen to · live state · pause · stop · new session) · OpacityButton · HideFromBarsButton · WindowControls
 │       ├── Sidebar                 four destinations; icons only in a narrow window
 │       └── <Screen>                lazy: Home · AI chats · History · Settings
 │             Home       → QuestionsPane (QuestionCard list, newest first; optional TranscriptView, its height a SplitHandle) · SplitHandle · AnswerPanel

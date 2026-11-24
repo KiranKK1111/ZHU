@@ -19,6 +19,30 @@ from .preprocess import Preprocessor
 
 log = logging.getLogger(__name__)
 
+COINIT_MULTITHREADED = 0x0
+
+
+def _com_init() -> bool:
+    """COM for this capture thread, before it opens a stream. PortAudio's WASAPI backend sets up COM
+    only on the thread that initializes it, which a capture thread is only when no other stream is
+    open. A microphone opened while system audio is already capturing (chosen during listening, or
+    reconnecting after it was unplugged) otherwise fails with "Unanticipated host error" on every
+    try. Measured: multithreaded COM opens every case cleanly; apartment-threaded still fails at times.
+    Returns whether it must be undone when the thread ends."""
+    import sys
+
+    if sys.platform != "win32":
+        return False
+    import ctypes
+
+    return ctypes.windll.ole32.CoInitializeEx(None, COINIT_MULTITHREADED) >= 0  # S_OK or S_FALSE
+
+
+def _com_uninit() -> None:
+    import ctypes
+
+    ctypes.windll.ole32.CoUninitialize()
+
 BlockHandler = Callable[[np.ndarray, int], None]  # (16 kHz mono float32 block, session sample offset)
 StatusHandler = Callable[[str, str, Optional[str]], None]  # (source kind, state, message)
 
@@ -44,6 +68,7 @@ class SourceCapture:
         self._thread: Optional[threading.Thread] = None
         self.dropped_blocks = 0
         self.device: Optional[AudioDevice] = None
+        self._channels = 1  # of the open stream
         self._samples_out = 0  # 16 kHz samples delivered, defines this source's clock
 
     # ------------------------------------------------------------------ control
@@ -74,27 +99,43 @@ class SourceCapture:
 
     # ------------------------------------------------------------------ worker
     def _run(self) -> None:
-        backoff = 0.5
-        while not self._stop.is_set():
-            try:
-                self._capture_once()
-                backoff = 0.5
-            except Exception as exc:  # device unplugged, exclusive-mode conflict, driver reset...
-                log.warning("%s capture error: %s", self.kind, exc)
-                self._on_status(self.kind, "reconnecting", f"Audio device interrupted: {exc}")
-                if self._stop.wait(backoff):
-                    break
-                backoff = min(backoff * 2, 5.0)
+        com = _com_init()
+        try:
+            backoff = 0.5
+            while not self._stop.is_set():
+                try:
+                    self._capture_once()
+                    backoff = 0.5
+                except Exception as exc:  # device unplugged, exclusive-mode conflict, driver reset...
+                    log.warning("%s capture error: %s", self.kind, exc)
+                    self._on_status(self.kind, "reconnecting", f"Audio device interrupted: {exc}")
+                    if self._stop.wait(backoff):
+                        break
+                    backoff = min(backoff * 2, 5.0)
+        finally:
+            if com:
+                _com_uninit()
         self._on_status(self.kind, "stopped", None)
 
     def _capture_once(self) -> None:
         pyaudio = _pyaudio()
-        dev = resolve_device(self.kind, self.device_id)
-        if dev is None:
-            raise RuntimeError(f"no {self.kind} device available")
+        # Finding the device and opening it are one step: finding it re-initializes PortAudio while
+        # no stream is open, and the other source starting at the same moment must not do that
+        # between this one's finding and opening.
+        with PortAudioHost.lock():
+            dev = resolve_device(self.kind, self.device_id)
+            if dev is None:
+                raise RuntimeError(f"no {self.kind} device available")
+            stream = self._open(pyaudio, dev)
+        try:
+            self._capture_stream(stream, dev)
+        finally:
+            PortAudioHost.close_stream(stream)  # never terminate PortAudio: other streams may be open
+
+    def _open(self, pyaudio, dev: AudioDevice):
         self.device = dev
         channels = max(1, dev.channels)  # WASAPI shared mode: must match the endpoint's native channel count
-        pre = Preprocessor(dev.default_samplerate, channels, self._noise_reduction)
+        self._channels = channels
         frames = max(1, dev.default_samplerate // 50)  # 20 ms
 
         def callback(in_data, frame_count, time_info, status):
@@ -110,8 +151,11 @@ class SourceCapture:
                 self._q.put_nowait(arr.copy())
             return (None, pyaudio.paContinue)
 
-        stream = PortAudioHost.open_stream(format=pyaudio.paFloat32, channels=channels, rate=dev.default_samplerate, input=True,
-                                           input_device_index=dev.index, frames_per_buffer=frames, stream_callback=callback)
+        return PortAudioHost.open_stream(format=pyaudio.paFloat32, channels=channels, rate=dev.default_samplerate, input=True,
+                                         input_device_index=dev.index, frames_per_buffer=frames, stream_callback=callback)
+
+    def _capture_stream(self, stream, dev: AudioDevice) -> None:
+        pre = Preprocessor(dev.default_samplerate, self._channels, self._noise_reduction)
         self._on_status(self.kind, "capturing", dev.name)
         last_data = time.monotonic()
         # A loopback endpoint delivers NO packets while nothing plays. To keep this source's
@@ -126,25 +170,22 @@ class SourceCapture:
             if gap > 1600:  # > 100 ms behind real time: that span was silence
                 self._deliver(np.zeros(gap, dtype=np.float32))
 
-        try:
-            while not self._stop.is_set():
-                try:
-                    block = self._q.get(timeout=0.25)
-                    last_data = time.monotonic()
-                except queue.Empty:
-                    if not stream.is_active():
-                        raise RuntimeError("stream became inactive")
-                    if self.kind == "system":
-                        pad_to_now()
-                    elif time.monotonic() - last_data > 3.0:
-                        raise RuntimeError("microphone delivered no audio for 3 s")
-                    continue
-                processed = pre.process(block)
+        while not self._stop.is_set():
+            try:
+                block = self._q.get(timeout=0.25)
+                last_data = time.monotonic()
+            except queue.Empty:
+                if not stream.is_active():
+                    raise RuntimeError("stream became inactive")
                 if self.kind == "system":
-                    pad_to_now(reserve=processed.size)
-                self._deliver(processed)
-        finally:
-            PortAudioHost.close_stream(stream)  # never terminate PortAudio: other streams may be open
+                    pad_to_now()
+                elif time.monotonic() - last_data > 3.0:
+                    raise RuntimeError("microphone delivered no audio for 3 s")
+                continue
+            processed = pre.process(block)
+            if self.kind == "system":
+                pad_to_now(reserve=processed.size)
+            self._deliver(processed)
 
     def _deliver(self, mono16k: np.ndarray) -> None:
         if mono16k.size == 0:

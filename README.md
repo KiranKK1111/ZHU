@@ -101,7 +101,7 @@ Either way works, and you can use both.
 
 ### 2. Start listening
 
-Press **Start listening** in the title bar; it is there on every screen. ZHU listens to the call (your computer's sound) and to your microphone. While it listens, the title bar shows **Live** with the time, and **Pause** and **Stop** next to it; the tray icon says whether ZHU is recording too. The **+** next to Start listening opens a fresh session.
+Press **Start listening** in the title bar; it is there on every screen. ZHU listens to the call (your computer's sound) and to your microphone, or to only one of them: Start listening asks which (system audio and microphone, system audio only, or microphone only). While it listens, the title bar shows **Live** with the time, and **Pause** and **Stop** next to it; the tray icon says whether ZHU is recording too. The **+** next to Start listening opens a fresh session.
 
 <p align="center">
   <img src="docs/images/title-bar.png" width="640" alt="The title bar while listening: Live with the recording time, Pause and Stop, then the opacity control opened with its slider, the eye button for hide mode, and the panel button" />

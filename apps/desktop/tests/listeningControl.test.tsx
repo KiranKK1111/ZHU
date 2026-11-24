@@ -6,7 +6,18 @@ import type { ListeningStatus } from "@/types/engine";
 const actions = { start: vi.fn(async () => undefined), pause: vi.fn(async () => undefined), resume: vi.fn(async () => undefined), stop: vi.fn(async () => undefined), newSession: vi.fn(async () => undefined) };
 vi.mock("@/hooks/useActions", () => ({ useListeningActions: () => actions }));
 let setupRequired = false;
-vi.mock("@/services/engine", () => ({ api: { models: async () => ({ setup_required: setupRequired, catalog: [] }) } }));
+let audio = { system_enabled: true, microphone_enabled: true };
+const updateSettings = vi.fn(async (patch: { audio?: Partial<typeof audio> }) => {
+  audio = { ...audio, ...patch.audio };
+  return { audio };
+});
+vi.mock("@/services/engine", () => ({
+  api: {
+    models: async () => ({ setup_required: setupRequired, catalog: [] }),
+    settings: async () => ({ audio }),
+    updateSettings: (patch: { audio?: Partial<typeof audio> }) => updateSettings(patch),
+  },
+}));
 
 import { useSession } from "@/app/state/session";
 import { useToasts, useNav } from "@/app/state/ui";
@@ -25,8 +36,16 @@ const show = () =>
     </QueryClientProvider>,
   );
 
+/** Opens a Radix menu the keyboard way (jsdom has no PointerEvent, which a mouse press needs). */
+const openMenu = (trigger: HTMLElement) => {
+  trigger.focus();
+  fireEvent.keyDown(trigger, { key: "Enter" });
+};
+
 beforeEach(() => {
   setupRequired = false;
+  audio = { system_enabled: true, microphone_enabled: true };
+  updateSettings.mockClear();
   for (const f of Object.values(actions)) f.mockClear();
   useSession.setState({ listening: status("idle"), currentSessionId: "s1" });
   useToasts.setState({ toasts: [] });
@@ -34,12 +53,37 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("listening in the title bar", () => {
-  it("offers Start listening and New session while nothing is recorded", async () => {
+  it("offers New session while nothing is recorded", async () => {
     show();
-    fireEvent.click(await screen.findByRole("button", { name: /Start listening/ }));
-    expect(actions.start).toHaveBeenCalledTimes(1);
-    fireEvent.click(screen.getByRole("button", { name: /New session/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /New session/ }));
     expect(actions.newSession).toHaveBeenCalledTimes(1);
+  });
+
+  it("asks what to listen to when Start listening is pressed: three options of one size", async () => {
+    show();
+    openMenu(await screen.findByRole("button", { name: /Start listening/ }));
+    const options = await screen.findAllByRole("menuitem");
+    expect(options.map((o) => o.querySelector(".font-medium")?.textContent)).toEqual(["System audio and microphone", "System audio only", "Microphone only"]);
+    // Every row is the same grid: icon tile, two lines, tick column.
+    expect(new Set(options.map((o) => o.className)).size).toBe(1);
+    expect(options[0].textContent).toContain("(last used)"); // both, the first time
+    expect(options[1].textContent).not.toContain("(last used)");
+    expect(actions.start).not.toHaveBeenCalled(); // opening the menu starts nothing
+  });
+
+  it("starts with the option picked and remembers it for the next start", async () => {
+    show();
+    openMenu(await screen.findByRole("button", { name: /Start listening/ }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: /Microphone only/ }));
+    await waitFor(() => expect(actions.start).toHaveBeenCalledWith(["microphone"]));
+    expect(updateSettings).toHaveBeenCalledWith({ audio: { system_enabled: false, microphone_enabled: true } });
+    // The same choice again: started, nothing to save.
+    updateSettings.mockClear();
+    openMenu(await screen.findByRole("button", { name: /Start listening/ }));
+    expect((await screen.findByRole("menuitem", { name: /Microphone only/ })).textContent).toContain("(last used)");
+    fireEvent.click(screen.getByRole("menuitem", { name: /Microphone only/ }));
+    await waitFor(() => expect(actions.start).toHaveBeenCalledTimes(2));
+    expect(updateSettings).not.toHaveBeenCalled();
   });
 
   it("shows the live state with Pause and Stop while listening, Resume while paused", async () => {

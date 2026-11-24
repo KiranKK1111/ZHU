@@ -35,10 +35,11 @@ export function useListeningActions() {
     return created.id;
   }, [qc]);
 
-  const start = useCallback(async () => {
+  /** Without sources: what was chosen last (the hotkey and the tray start that way). */
+  const start = useCallback(async (sources?: ("microphone" | "system")[]) => {
     try {
       const sid = await ensureSession();
-      const status = await api.startListening(sid);
+      const status = await api.startListening(sid, sources);
       useSession.getState().setListening(status);
       toast.success("Listening started", status.device === "cpu" ? "Local transcription is running in CPU mode." : undefined);
     } catch (err) {

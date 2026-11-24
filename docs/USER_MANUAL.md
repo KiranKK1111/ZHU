@@ -9,7 +9,7 @@ ZHU listens to a conversation, writes down the questions that are asked, and hel
    * **The chat websites you already use** (AI chats): ChatGPT, Claude, Gemini, and others open as tabs inside ZHU. Sign in once, as in a browser.
 
 ## Home
-* **Start listening** (in the title bar, on every screen) begins a session. ZHU listens to the call (your computer's sound) and to your microphone. While it listens, the title bar shows **Live** with the timer, and **Pause** (or **Resume**) and **Stop** next to it; the tray icon shows it too. If listening stops with an error, a notice says why and **Start listening** is offered again.
+* **Start listening** (in the title bar, on every screen) begins a session. Pressing it opens a short list of what to listen to: **System audio and microphone** (the call, your computer's sound, and what you say), **System audio only**, or **Microphone only**; pick one and ZHU starts. The one you used last is ticked, and the keyboard shortcut and the tray menu start with it. To change it while listening, use Settings → Listening → **Listen to**: it takes effect at once, in the same session. The speaker and the microphone themselves are chosen there too. While it listens, the title bar shows **Live** with the timer, and **Pause** (or **Resume**) and **Stop** next to it; the tray icon shows it too. If listening stops with an error, a notice says why and **Start listening** is offered again.
 * **Questions** (left): every question that is asked appears here, newest first, written out clearly. While someone is still speaking, the card says "Still listening…".
   * **Answer** asks your AI model. **Copy** copies the question. The chat icon sends it to your chat tabs.
   * The **⋯** menu: **Edit wording**, or **Not a question** to remove it.

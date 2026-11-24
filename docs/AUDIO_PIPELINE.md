@@ -19,8 +19,8 @@ WASAPI device (PortAudio callback, 20 ms blocks, float32)
 
 * **Microphone**: the WASAPI input device (Windows default, or the device chosen in Settings → Listening).
 * **System audio**: WASAPI **loopback** of a render endpoint, which captures everything playing on that output. A loopback endpoint delivers no packets while nothing plays; the capture worker synthesizes silence so timestamps stay continuous.
-* Both sources can run at once. Each has its own VAD and segment stream, labeled by source. The labels ("Microphone" and "System audio" by default) are configurable. ZHU never assumes system audio is "the interviewer".
-* Device IDs are stable (`<kind>:<device name>`). An unplugged or failed device triggers reconnection with exponential backoff (0.5 → 5 s), falling back to the current default device. The status appears in `listening.status.sources`.
+* Both sources can run at once, or one of them (**Listen to**: system audio and microphone, system audio only, microphone only; `audio.system_enabled` / `audio.microphone_enabled`). A change while listening starts the newly chosen source on the session's audio clock, so timestamps and question timing line up, and then stops the one no longer chosen (what it was saying is finished first); the session, its timer and its questions go on. Each source has its own VAD and segment stream, labeled by source. The labels ("Microphone" and "System audio" by default) are configurable. ZHU never assumes system audio is "the interviewer".
+* Device IDs are stable (`<kind>:<device name>`). An unplugged or failed device triggers reconnection with exponential backoff (0.5 → 5 s), falling back to the current default device. Each capture thread initializes COM (multithreaded) before it opens a stream: PortAudio's WASAPI backend sets up COM only on the thread that initializes it, so a microphone opened while system audio was already capturing (chosen during listening, or reconnecting) failed with "Unanticipated host error" on every try. The status appears in `listening.status.sources`.
 
 ## Streaming semantics
 

@@ -70,6 +70,7 @@ class SessionService:
         self._segmenters: dict[str, Segmenter] = {}
         self._open_segments: dict[str, dict] = {}  # source -> {"id", "rev", "last_partial", "seg"}
         self._source_status: dict[str, dict] = {}
+        self._sources_lock = asyncio.Lock()  # one change of the sources listened to at a time
         self.transcriber: Optional[Transcriber] = None
         self.selection: Optional[Selection] = None
         self._listen_started_at: Optional[float] = None
@@ -260,10 +261,9 @@ class SessionService:
             raise EngineError("session not found", 404)
         if session["status"] != "active":
             raise EngineError("this session has ended; start a new session to record")
-        audio = self.settings.audio
-        wanted = sources or [s for s, on in (("microphone", audio.microphone_enabled), ("system", audio.system_enabled)) if on]
+        wanted = sources or self.chosen_sources()
         if not wanted:
-            raise EngineError("enable at least one audio source in Settings → Audio")
+            raise EngineError("Choose what to listen to (system audio, the microphone, or both): the button next to Start listening.")
         installed = installed_models(self.paths.models)
         if not installed:
             raise EngineError("No speech model is installed yet. Download one from the model setup screen.", 409)
@@ -310,23 +310,9 @@ class SessionService:
                 self._emit_status()
                 raise EngineError(self.state_message, 500)
 
-        from .audio.capture import SourceCapture
-
-        vad_cfg = VadConfig(**self.settings.vad.model_dump())
         offset = max(0, self._session_clock_ms()) * SR // 1000
         for src in wanted:
-            seg = Segmenter(src, vad_cfg, self._make_cb(src, "start"), self._make_cb(src, "audio"), self._make_cb(src, "end"))
-            self._segmenters[src] = seg
-            dev_id = audio.microphone_device if src == "microphone" else audio.system_device
-
-            def on_block(block: np.ndarray, off: int, _seg=seg, _src=src) -> None:
-                _seg.feed(block, off)
-                self._maybe_emit_level(_src, block)
-
-            cap = SourceCapture(src, dev_id, on_block, self._on_capture_status, noise_reduction=audio.noise_reduction)
-            self._captures[src] = cap
-            self._source_status[src] = {"state": "starting", "device": None, "label": self._label(src), "message": None}
-            cap.start(offset)
+            self._start_source(src, offset)
         self.state, self.state_message = "listening", None
         self._listen_started_at = time.monotonic()
         self._elapsed_before_ms = 0
@@ -334,6 +320,60 @@ class SessionService:
             self.state_message = "Local transcription is running in CPU mode."
         self._emit_status()
         return self.listening_status()
+
+    def chosen_sources(self) -> list[str]:
+        """What Start listening listens to: system audio, the microphone, or both (Settings → Listening,
+        and the button next to Start listening)."""
+        audio = self.settings.audio
+        return [s for s, on in (("microphone", audio.microphone_enabled), ("system", audio.system_enabled)) if on]
+
+    def _start_source(self, src: str, offset: int, paused: bool = False) -> None:
+        """Capture one source from ``offset`` (16 kHz samples on the session clock) and feed its speech in."""
+        from .audio.capture import SourceCapture
+
+        audio = self.settings.audio
+        seg = Segmenter(src, VadConfig(**self.settings.vad.model_dump()), self._make_cb(src, "start"), self._make_cb(src, "audio"), self._make_cb(src, "end"))
+        self._segmenters[src] = seg
+        dev_id = audio.microphone_device if src == "microphone" else audio.system_device
+
+        def on_block(block: np.ndarray, off: int, _seg=seg, _src=src) -> None:
+            _seg.feed(block, off)
+            self._maybe_emit_level(_src, block)
+
+        cap = SourceCapture(src, dev_id, on_block, self._on_capture_status, noise_reduction=audio.noise_reduction)
+        if paused:
+            cap.pause()  # before it starts, so not a block of a paused session gets through
+        self._captures[src] = cap
+        self._source_status[src] = {"state": "starting", "device": None, "label": self._label(src), "message": None}
+        cap.start(offset)
+
+    async def apply_chosen_sources(self) -> dict:
+        """While listening (or paused), listen to what is chosen now, without a new start: a source no
+        longer chosen stops, after what it was saying is finished; a newly chosen one starts on the
+        session's audio clock, so its transcript and the question timing line up with the others."""
+        async with self._sources_lock:
+            wanted = self.chosen_sources()
+            if self.state not in ("listening", "paused") or not wanted:
+                return self.listening_status()
+            offset = self._audio_clock_ms() * SR // 1000
+            # The new one first, then the old one stops: no gap, and the audio library is never
+            # restarted in between (with no stream open it re-initializes, and a device opened in
+            # that very moment fails once with "Invalid sample rate" and is retried).
+            removed = [s for s in self._captures if s not in wanted]
+            for src in wanted:
+                if src not in self._captures:
+                    self._start_source(src, offset, paused=self.state == "paused")
+            for src in removed:
+                cap = self._captures.pop(src, None)
+                self._source_status.pop(src, None)
+                if cap is not None:  # else Stop took it meanwhile
+                    await asyncio.to_thread(cap.stop)  # type: ignore[attr-defined]
+                seg = self._segmenters.pop(src, None)
+                if seg is not None:
+                    seg.flush()
+            log.info("listening to: %s", ", ".join(sorted(self._captures)) or "nothing")
+            self._emit_status()
+            return self.listening_status()
 
     @staticmethod
     def _fallback_ladder(sel: Selection, installed: list[str]) -> list[Selection]:
@@ -511,6 +551,8 @@ class SessionService:
 
     def _on_capture_status(self, source: str, state: str, message: Optional[str]) -> None:
         def apply() -> None:
+            if source not in self._captures:
+                return  # stopped: its last report ("stopped") comes after it was taken out
             st = self._source_status.setdefault(source, {"label": self._label(source)})
             st["state"] = state
             if state == "capturing":
@@ -564,6 +606,9 @@ class SessionService:
     # ================================================================== settings
     def update_settings(self, patch: dict) -> EngineSettings:
         new = merge_settings(self.settings, patch)
+        audio_patch = patch.get("audio") if isinstance(patch.get("audio"), dict) else {}
+        if {"microphone_enabled", "system_enabled"} & set(audio_patch) and not (new.audio.microphone_enabled or new.audio.system_enabled):
+            raise ValueError("Choose something to listen to: system audio, the microphone, or both.")
         self.settings = new
         self.db.set_setting("engine_settings", new.model_dump())
         for eng in self._engines.values():

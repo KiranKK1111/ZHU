@@ -10,6 +10,7 @@ import { ConfirmDialog, Modal } from "@/components/primitives/Dialog";
 import { Badge } from "@/components/primitives/Display";
 import { Textarea } from "@/components/primitives/Input";
 import { Kbd } from "@/components/primitives/Kbd";
+import { ListenSourcesIcons } from "@/components/layout/ListeningControl";
 import { GpuDriverWarning } from "@/components/setup/GpuDriverWarning";
 import { WebChatOptions } from "@/features/webchat/WebChatOptions";
 import { useProviders } from "@/hooks/useProviders";
@@ -19,6 +20,7 @@ import { DEFAULT_HOTKEYS, HOTKEY_ACTIONS, HOTKEY_LABELS, type HotkeyAction } fro
 import { cn } from "@/utils/cn";
 import { errorMessage } from "@/utils/format";
 import { toAccelerator } from "@/utils/hotkeys";
+import { LISTEN_SOURCES, listenSources, listenSourcesOption, listenSourcesPatch } from "@/utils/listenSources";
 import { ModelsSection } from "./ModelsSection";
 import { useEngineSettings } from "./useEngineSettings";
 
@@ -267,28 +269,47 @@ function Listening() {
   const options = (kind: "microphone" | "system") => [{ value: "default", label: "Windows default" }, ...(devices.data ?? []).filter((d) => d.kind === kind).map((d) => ({ value: d.id, label: d.name }))];
   const model = models.data?.catalog.find((m) => m.name === settings.transcription.model);
   const installed = !!models.data?.installed.includes(settings.transcription.model);
+  const sources = listenSources(a);
   return (
     <Card>
       <Row
-        title="The call (computer sound)"
-        description="What you hear from the other person in Zoom, Teams, Meet or a browser."
+        title="Listen to"
+        description={
+          sources
+            ? `${listenSourcesOption(sources).description}. Start listening asks each time; this is the last choice, which the shortcut and the tray use. A change while listening applies at once.`
+            : "What ZHU listens to when started from the shortcut or the tray."
+        }
         control={
-          <div className="flex items-center gap-2">
-            {a.system_enabled ? <Select label="Speaker to listen to" size="sm" value={a.system_device ?? "default"} onValueChange={(v) => void update({ audio: { system_device: v === "default" ? null : v } }, true)} className="w-52" options={options("system")} /> : null}
-            <Switch checked={a.system_enabled} label="Listen to computer sound" onCheckedChange={(v) => void update({ audio: { system_enabled: v } }, true)} />
-          </div>
+          <Segmented
+            label="Listen to"
+            value={sources}
+            onValueChange={(v) => void update(listenSourcesPatch(v), true)}
+            options={LISTEN_SOURCES.map((o) => ({
+              value: o.value,
+              label: (
+                <>
+                  <ListenSourcesIcons value={o.value} />
+                  {o.short}
+                </>
+              ),
+            }))}
+          />
         }
       />
-      <Row
-        title="Your microphone"
-        description="What you say."
-        control={
-          <div className="flex items-center gap-2">
-            {a.microphone_enabled ? <Select label="Microphone" size="sm" value={a.microphone_device ?? "default"} onValueChange={(v) => void update({ audio: { microphone_device: v === "default" ? null : v } }, true)} className="w-52" options={options("microphone")} /> : null}
-            <Switch checked={a.microphone_enabled} label="Listen to the microphone" onCheckedChange={(v) => void update({ audio: { microphone_enabled: v } }, true)} />
-          </div>
-        }
-      />
+      {a.system_enabled ? (
+        <Row
+          title="System audio (the call)"
+          description="What you hear from the other person in Zoom, Teams, Meet or a browser."
+          control={<Select label="Speaker to listen to" size="sm" value={a.system_device ?? "default"} onValueChange={(v) => void update({ audio: { system_device: v === "default" ? null : v } }, true)} className="w-52" options={options("system")} />}
+        />
+      ) : null}
+      {a.microphone_enabled ? (
+        <Row
+          title="Your microphone"
+          description="What you say."
+          control={<Select label="Microphone" size="sm" value={a.microphone_device ?? "default"} onValueChange={(v) => void update({ audio: { microphone_device: v === "default" ? null : v } }, true)} className="w-52" options={options("microphone")} />}
+        />
+      ) : null}
       <Row
         title="Language spoken"
         control={<Select label="Language spoken" value={settings.transcription.language ?? "auto"} onValueChange={(v) => void update({ transcription: { language: v === "auto" ? null : v } }, true)} className="w-52" options={LANGUAGES} />}

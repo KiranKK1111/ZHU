@@ -647,18 +647,15 @@ pub fn run() {
                 let app = window.app_handle();
                 let st = app.state::<AppState>();
                 match window.label() {
-                    "main" if !st.quitting.load(Ordering::SeqCst) && st.close_to_tray.load(Ordering::SeqCst) => {
+                    // Shown, with close-to-tray on: the window goes to the tray. A hidden ZHU has no
+                    // tray icon to come back from, so there closing quits (minimize keeps it, behind
+                    // the floating icon). It opens hidden again next time (start_state.rs).
+                    "main" if !st.quitting.load(Ordering::SeqCst) && st.close_to_tray.load(Ordering::SeqCst) && !bars::is_hidden() => {
                         api.prevent_close();
-                        // A hidden ZHU has no tray icon to come back from: it is minimized instead,
-                        // and the floating icon brings it back.
-                        if bars::is_hidden() {
-                            let _ = window.minimize();
-                        } else {
-                            let _ = window.hide();
-                        }
+                        let _ = window.hide();
                     }
                     "main" => {
-                        // Closing it quits ZHU (close-to-tray is off, or ZHU is quitting already).
+                        // Closing it quits ZHU (close-to-tray is off, ZHU is hidden, or it is quitting already).
                         api.prevent_close();
                         quit_app(app);
                     }

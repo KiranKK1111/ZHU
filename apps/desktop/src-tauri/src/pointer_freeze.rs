@@ -18,7 +18,11 @@
 //!     captures, showing the arrow cursor of your Windows pointer scheme) and hands
 //!     every movement, click, double-click, wheel turn and drag to the window under the arrow, as
 //!     the mouse would have. A click also brings ZHU to the front and gives the keyboard to the page
-//!     under the arrow. Dragging the title bar moves the window with the arrow (Windows' own drag
+//!     under the arrow. Windows may refuse to bring a program forward that it did not see clicked
+//!     (another program has the keyboard, often one running as administrator): then that press
+//!     is made a real click at the arrow, which brings ZHU forward like any click, and the real
+//!     pointer glides off the page again after it. Otherwise what you type would go to the other
+//!     program. Dragging the title bar moves the window with the arrow (Windows' own drag
 //!     follows the real pointer, which stands still).
 //!   * What freezes is the whole page, and nothing of the window's edges: the strip along the top
 //!     and the frame just outside the other edges, where Windows resizes the window, keep the real
@@ -161,6 +165,8 @@ pub(crate) mod machine {
         pub foreign: bool,
         /// Windows is moving or resizing ZHU's window itself, with the real pointer.
         pub moving: bool,
+        /// ZHU's window is the one in front: it has the keyboard.
+        pub in_front: bool,
         /// Milliseconds, for the real pointer's glides.
         pub now: u64,
     }
@@ -286,6 +292,11 @@ pub(crate) mod machine {
             self.state == State::Free
         }
 
+        /// The arrow has the mouse over ZHU's page.
+        pub fn is_frozen(&self) -> bool {
+            matches!(self.state, State::Frozen { .. })
+        }
+
         /// The real pointer is on its way somewhere: the hook needs a clock until it is there.
         pub fn gliding(&self) -> bool {
             matches!(self.state, State::Leaving { .. } | State::Frozen { settle: Some(_), .. })
@@ -387,6 +398,14 @@ pub(crate) mod machine {
                         return self.leave(arrow, 0, None, ctx, false);
                     }
                     Out::post(Post::Moved(arrow))
+                }
+                // Another program has the keyboard, and Windows did not let ZHU come forward on
+                // its own (the hook asked first): a press only ZHU hears of would leave the keyboard
+                // there. This one is made a real click at the arrow, which brings ZHU forward like
+                // any click; once it is released and the mouse moves on, the page freezes again.
+                Some(Event::Down(b)) if held == 0 && !ctx.in_front => {
+                    self.real |= b.bit();
+                    return Out { replay: true, ..self.free_at(arrow) };
                 }
                 Some(Event::Down(b)) => {
                     held |= b.bit();
@@ -581,7 +600,7 @@ pub(crate) mod machine {
             SCREEN.contains(p)
         }
         fn at(cursor: Pt, now: u64) -> Context {
-            Context { active: true, zone: Some(ZONE), cursor, screen: SCREEN, on_screen, release: false, foreign: false, moving: false, now }
+            Context { active: true, zone: Some(ZONE), cursor, screen: SCREEN, on_screen, release: false, foreign: false, moving: false, in_front: true, now }
         }
         fn ctx(cursor: Pt) -> Context {
             at(cursor, 0)
@@ -709,6 +728,24 @@ pub(crate) mod machine {
             let mut m = Machine::new();
             m.step(Event::Move(pt(150, 150)), &ctx(pt(50, 150)));
             assert_eq!(m.step(Event::Wheel { delta: -120, horizontal: false }, &ctx(pt(50, 150))), post(Post::Wheel { delta: -120, horizontal: false, at: pt(150, 150) }));
+        }
+
+        #[test]
+        fn a_click_into_zhu_while_another_program_has_the_keyboard_is_a_real_click_there() {
+            let mut m = frozen_at(pt(200, 200));
+            assert!(m.is_frozen());
+            let behind = Context { in_front: false, ..ctx(pt(90, 200)) };
+            // The real pointer goes to the arrow and the press is made again there: Windows then
+            // brings ZHU forward, and what is typed next goes to ZHU.
+            assert_eq!(m.step(Event::Down(Button::Left), &behind), Out { replay: true, ..put(pt(200, 200), Post::Leave(pt(200, 200))) });
+            assert!(m.is_free());
+            // Its release goes through as it is (no freezing while a button is down)...
+            assert_eq!(m.step(Event::Up(Button::Left), &ctx(pt(200, 200))), Out::PASS);
+            // ...and moving on freezes the page again, the real pointer leaving it.
+            let out = m.step(Event::Move(pt(205, 200)), &ctx(pt(200, 200)));
+            assert!(matches!(out.post, Post::Enter(_)) && m.is_frozen());
+            // With ZHU in front, a press is ZHU's alone, as always.
+            assert_eq!(m.step(Event::Down(Button::Left), &ctx(pt(200, 200))).post, Post::Pressed(Button::Left, pt(205, 200)));
         }
 
         #[test]
@@ -1192,6 +1229,14 @@ mod imp {
         }
         let out = {
             let Ok(mut machine) = MACHINE.lock() else { return false };
+            if matches!(event, Event::Down(_)) && !foreign && machine.is_frozen() && !in_front() {
+                // A click into ZHU while another program has the keyboard. Windows lets a program
+                // come forward while it handles the user's own input, which this hook is doing; if
+                // it still refuses, the machine makes the click a real one (Machine::frozen).
+                unsafe {
+                    let _ = SetForegroundWindow(main_window());
+                }
+            }
             let out = machine.step(event, &context(foreign));
             match (out.replay, out.cursor) {
                 (true, Some(at)) => {
@@ -1278,7 +1323,16 @@ mod imp {
             release: RELEASE.swap(false, Ordering::SeqCst),
             foreign,
             moving: MOVING.load(Ordering::SeqCst),
+            in_front: in_front(),
             now: now_ms(),
+        }
+    }
+
+    /// ZHU's main window is the one in front (it, or one of its pages, has the keyboard).
+    fn in_front() -> bool {
+        unsafe {
+            let front = GetForegroundWindow();
+            !front.is_invalid() && (front == main_window() || GetAncestor(front, GA_ROOT) == main_window())
         }
     }
 
